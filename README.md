@@ -16,6 +16,20 @@ A modern, dark-themed desktop application designed to streamline video content c
 - **🧹 Clean Workspace**: Automated `__pycache__` relocation and temporary file cleanup to keep your project source code pristine.
 
 ---
+## 📸 Screenshots
+
+| Page | View |
+|:---:|:---:|
+| ![Home Screen](docs/screenshots/home_screen.png) | ![Settings Page](docs/screenshots/settings.png) |
+| **Project Setup** | **Global Configuration** |
+| ![Transcript Generator](docs/screenshots/transcript_generator.png) | ![Concurrent Downloads](docs/screenshots/concurrent_download.png) |
+| **Transcript Generation** | **Concurrent Download** |
+| ![Clip Downloader](docs/screenshots/clips_downloader.png) | ![Clip Success](docs/screenshots/clips_downloader_success.png) |
+| **Clip Downloader (Active)** | **Clip Downloader (Completion)** |
+| ![Proxy Downloader](docs/screenshots/proxy_downloader.png) | ![Proxy Success](docs/screenshots/proxy_downloader_success.png) |
+| **Proxy Downloader (Active)** | **Proxy Downloader (Completion)** |
+
+---
 
 ## 🛠️ Tech Stack
 
@@ -32,7 +46,10 @@ A modern, dark-themed desktop application designed to streamline video content c
 
 - **Python 3.10+**
 - **yt-dlp**: Ensure `yt-dlp` is installed and accessible in your system's PATH.
-- **FFmpeg**: Required for `yt-dlp` to merge high-quality video/audio streams.
+- **FFmpeg**: Required for merging high-quality video/audio streams.
+
+> [!IMPORTANT]
+> **FFmpeg must be installed and added to your system environment variables (PATH)**. Without it, high-quality downloads and format merging will fail.
 
 ### Installation
 

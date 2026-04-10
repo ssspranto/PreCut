@@ -7,9 +7,10 @@ os.makedirs(pycache_dir, exist_ok=True)
 sys.pycache_prefix = pycache_dir
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 from page_view import TranscriptGenerator, ClipsDownloader, ProxyDownloader, Home, Settings
 from PIL import Image, ImageTk
+from utils import check_dependencies
 
 class ServicesView(tk.Frame):
     def __init__(self, master, **kw):
@@ -197,6 +198,17 @@ if __name__ == "__main__":
     root.title("PreCut - Content Workflow Helper")
     root.geometry('1024x720+450+150')
     root.configure(bg="#1A1A1D")
+
+    # Dependency Check
+    missing_tools = check_dependencies()
+    if missing_tools:
+        messagebox.showwarning(
+            "Missing Dependencies",
+            f"The following required tools were not found in your PATH:\n\n"
+            f"{', '.join(missing_tools)}\n\n"
+            "High-quality video merging and certain downloads may fail. "
+            "Please ensure they are installed and added to your system environment variables."
+        )
 
     # App Icon
     try:
