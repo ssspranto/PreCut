@@ -322,8 +322,8 @@ class ClipsDownloader(Page):
             return
 
         url = str(self.url_box.get()).strip()
-        if re.match(youtube_regex, url) is None:
-            messagebox.showerror('Invalid Link', "Please enter a valid youtube video/playlist url")
+        if re.match(video_regex, url) is None:
+            messagebox.showerror('Invalid Link', "Please enter a valid video/playlist URL")
             return
 
         if url in self.active_downloads.values():
@@ -401,8 +401,8 @@ class ProxyDownloader(Page):
             return
 
         url = str(self.url_box.get()).strip()
-        if re.match(youtube_regex, url) is None:
-            messagebox.showerror('Invalid Link', "Please enter a valid youtube video/playlist url")
+        if re.match(video_regex, url) is None:
+            messagebox.showerror('Invalid Link', "Please enter a valid video/playlist URL")
             return
 
         if url in self.active_downloads.values():

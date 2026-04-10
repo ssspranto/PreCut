@@ -116,12 +116,12 @@ class ServicesView(tk.Frame):
         try:
             with Image.open(image_path) as img:
                 # Resize the image so it fits nicely as an icon (e.g. 32x32 pixels)
-                img = img.resize((24, 24))
+                img = img.resize((18, 18))
                 # Convert it to a photo image
                 photo_image = ImageTk.PhotoImage(img)
         except Exception:
             # Fallback if icon is missing
-            img = Image.new("RGBA", (24, 24), (0,0,0,0))
+            img = Image.new("RGBA", (18, 18), (0,0,0,0))
             photo_image = ImageTk.PhotoImage(img)
         
         # Add page to dictionary so we can show it when needed
@@ -195,8 +195,16 @@ class ServicesTreeView(ttk.Treeview):
 if __name__ == "__main__":
     root = tk.Tk()
     root.title("PreCut - Content Workflow Helper")
-    root.geometry('1024x720')
+    root.geometry('1024x720+450+150')
     root.configure(bg="#1A1A1D")
+
+    # App Icon
+    try:
+        icon_img = Image.open('assets/precut.png')
+        icon_photo = ImageTk.PhotoImage(icon_img)
+        root.iconphoto(True, icon_photo)
+    except Exception as e:
+        print(f"Icon loading error: {e}")
     
     services = ServicesView(root, relief="flat")
 

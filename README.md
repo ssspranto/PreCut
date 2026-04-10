@@ -1,12 +1,14 @@
+![PreCut Logo](assets/precut_banner.png)
+
 # PreCut - Content Workflow Helper 🎬
 
-A modern, dark-themed desktop application designed to streamline YouTube content creation workflows. **PreCut** provides a centralized interface for generating transcripts, downloading high-quality clips, and managing low-resolution proxies with real-time feedback and smart concurrency management.
+A modern, dark-themed desktop application designed to streamline video content creation workflows. **PreCut** provides a centralized interface for generating transcripts, downloading high-quality clips, and managing low-resolution proxies with real-time feedback and smart concurrency management.
 
 ---
 
 ## ✨ Features
 
-- **📺 Transcript Generator**: Automatically fetch and clean YouTube transcripts. Strips WebVTT formatting, timestamps, and redundant tags to give you a clean, usable script instantly.
+- **📺 Transcript Generator**: Automatically fetch and clean transcripts from online video sources. Strips WebVTT formatting, timestamps, and redundant tags to give you a clean, usable script instantly.
 - **📥 Clips Downloader**: Download high-quality video clips directly into your project folders. Features a custom inline terminal log for real-time `yt-dlp` transparency.
 - **⚡ Proxy Downloader**: Create lightweight proxies (360p/480p) for faster editing timelines.
 - **⚙️ Persistent Settings**: Configure global download quality and project paths once. Settings are stored securely in your user Documents folder, persisting between sessions.
@@ -83,3 +85,12 @@ Contributions are welcome! Feel free to open an issue or submit a pull request f
 ## 📄 License
 
 Distributed under the MIT License. See `LICENSE` for more information.
+
+---
+
+## ⚖️ Legal Disclaimer
+
+### Fair Use Notice
+This application is provided for **educational and personal research purposes only**. It is designed to facilitate content creation workflows by allowing users to process and manage video assets they have the legal right to access.
+
+**PreCut** does not encourage or facilitate the unauthorized distribution of copyrighted material. Users are solely responsible for ensuring their use of this tool complies with local laws and the terms of service of any content platforms involved. The developers of PreCut assume no liability for misuse of this software.

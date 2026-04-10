@@ -11,7 +11,7 @@ def change_on_hover(button, colorOnHover, colorOnLeave):
     button.bind("<Leave>", func=lambda e: button.config(
         background=colorOnLeave))
     
-youtube_regex = (
+video_regex = (
     r'(https?://)?(www\.|m\.)?'
     r'(youtube\.com|youtu\.be)'
     r'(/(?:[\w\-]+\?v=|embed/|v/|shorts/)?)([\w\-]+)(\S+)?'
