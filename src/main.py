@@ -10,7 +10,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from page_view import TranscriptGenerator, ClipsDownloader, ProxyDownloader, Home, Settings
 from PIL import Image, ImageTk
-from utils import check_dependencies
+from utils import check_dependencies, get_asset_path
 
 class ServicesView(tk.Frame):
     def __init__(self, master, **kw):
@@ -212,7 +212,7 @@ if __name__ == "__main__":
 
     # App Icon
     try:
-        icon_img = Image.open('assets/precut.png')
+        icon_img = Image.open(get_asset_path('assets/precut.png'))
         icon_photo = ImageTk.PhotoImage(icon_img)
         root.iconphoto(True, icon_photo)
     except Exception as e:
@@ -220,13 +220,13 @@ if __name__ == "__main__":
     
     services = ServicesView(root, relief="flat")
 
-    services.add_page(image_path='assets/transcript_generator.png', service_name='Transcript Generator', page=TranscriptGenerator)
+    services.add_page(image_path=get_asset_path('assets/transcript_generator.png'), service_name='Transcript Generator', page=TranscriptGenerator)
 
-    services.add_page(image_path='assets/clips_downloader.png', service_name='Clip Downloader', page=ClipsDownloader)
+    services.add_page(image_path=get_asset_path('assets/clips_downloader.png'), service_name='Clip Downloader', page=ClipsDownloader)
 
-    services.add_page(image_path='assets/proxy_downloader.png', service_name='Proxy Downloader', page=ProxyDownloader)
+    services.add_page(image_path=get_asset_path('assets/proxy_downloader.png'), service_name='Proxy Downloader', page=ProxyDownloader)
 
-    services.add_page(image_path='assets/settings.png', service_name='Settings', page=Settings)
+    services.add_page(image_path=get_asset_path('assets/settings.png'), service_name='Settings', page=Settings)
 
     # Initialize app with the Home page displayed
     services.show_page('Home')

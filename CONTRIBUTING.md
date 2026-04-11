@@ -21,7 +21,7 @@ We have big plans for PreCut! Here are the core areas where we need your help:
 - [ ] **Audio-Only Mode**: A simple toggle to extract high-quality MP3/WAV files for podcasts.
 
 ### ⚙️ Backend & Performance
-- [ ] **Portable Build script**: Create a robust `build.py` using PyInstaller or Nuitka to generate a one-click `.exe`.
+- [x] **Portable Build script**: Create a robust `build.py` or use Nuitka to generate a one-click `.exe`.
 - [ ] **Error Handling**: Implement more granular error parsing for complex `yt-dlp` output failures.
 - [ ] **Plugin System**: Allow users to add their own custom `yt-dlp` command strings via the Settings page.
 
