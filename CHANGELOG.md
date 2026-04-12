@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2026-04-12
+
+### Added
+- **Codec Selector**: New dropdowns in Settings for selecting preferred video codecs (H.264, AV1, VP9) for both Clips and Proxies.
+- **Power User Commands**: The application now stores the entire `yt-dlp` command string in `settings.json`, allowing for advanced customization of download parameters.
+- **Improved Compatibility**: Default settings now prioritize the H.264 (avc1) codec to ensure out-of-the-box compatibility with video editors like Adobe Premiere Pro.
+
+### Fixed
+- Resolved import errors in Premiere Pro caused by the `av01` (AV1) codec being downloaded by default on some videos.
+- Fixed a bug where quality settings were not correctly mapped to full command strings in previous experimental builds.
+
 ## [1.0.0] - 2026-04-11
 
 ### Added

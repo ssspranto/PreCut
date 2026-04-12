@@ -5,8 +5,9 @@ import subprocess
 import re
 import os
 import pathlib
+import shlex
 from utils import *
-from config import app_config, QUALITY_FORMATS
+from config import app_config, CODEC_OPTIONS
 
 class DownloadingPanel(tk.Frame):
     def __init__(self, master, command, on_finish_callback=None, **kw):
@@ -335,9 +336,22 @@ class ClipsDownloader(Page):
             return
 
         quality_key = app_config.get("clips_quality")
-        quality_str = QUALITY_FORMATS["Clips"].get(quality_key, QUALITY_FORMATS["Clips"]["Best Available"])
+        format_commands = app_config.get("format_commands")
+        command_prefix = format_commands["Clips"].get(quality_key)
+        
+        if not command_prefix:
+            # Fallback if command is missing for some reason
+            messagebox.showerror("Error", "Selected format command not found. Please reset settings.")
+            return
 
-        command = ['yt-dlp',  '-f',  quality_str,  '-o', str(pathlib.Path(Page.project_location) / "Clips" / "%(title)s.%(ext)s"), url]
+        # Parse command string and add output/url
+        try:
+            command = shlex.split(command_prefix)
+            output_path = str(pathlib.Path(Page.project_location) / "Clips" / "%(title)s.%(ext)s")
+            command.extend(['-o', output_path, url])
+        except Exception as e:
+            messagebox.showerror("Command Error", f"Failed to parse command: {e}")
+            return
         
         panel = DownloadingPanel(self.panels_frame, command, on_finish_callback=self.on_download_complete)
         panel.pack(fill=tk.X, padx=30, pady=(0, 10))
@@ -414,9 +428,20 @@ class ProxyDownloader(Page):
             return
 
         quality_key = app_config.get("proxy_quality")
-        quality_str = QUALITY_FORMATS["Proxies"].get(quality_key, QUALITY_FORMATS["Proxies"]["360p"])
+        format_commands = app_config.get("format_commands")
+        command_prefix = format_commands["Proxies"].get(quality_key)
 
-        command = ['yt-dlp',  '-f',  quality_str, "--recode-video", "mp4",  '-o', str(pathlib.Path(Page.project_location) / "Proxies" / "%(title)s.%(ext)s"), url]
+        if not command_prefix:
+            messagebox.showerror("Error", "Selected format command not found. Please reset settings.")
+            return
+
+        try:
+            command = shlex.split(command_prefix)
+            output_path = str(pathlib.Path(Page.project_location) / "Proxies" / "%(title)s.%(ext)s_Proxy")
+            command.extend(['-o', output_path, url])
+        except Exception as e:
+            messagebox.showerror("Command Error", f"Failed to parse command: {e}")
+            return
         
         panel = DownloadingPanel(self.panels_frame, command, on_finish_callback=self.on_download_complete)
         panel.pack(fill=tk.X, padx=30, pady=(0, 10))
@@ -488,27 +513,37 @@ class Settings(Page):
         # Title
         tk.Label(self.frame_content, text="Application Settings", font=("Poppins", 16, "bold"), fg='white', bg="#1A1A1D").pack(anchor="w", padx=30, pady=(40, 20))
 
-        # Proxy Quality
+        # Proxy Quality & Codec
         proxy_frame = tk.Frame(self.frame_content, bg='#1A1A1D')
         proxy_frame.pack(fill=tk.X, padx=30, pady=10)
         
         tk.Label(proxy_frame, text="Proxy Quality: ", font=("Poppins", 12), fg='white', bg="#1A1A1D").pack(side=tk.LEFT, padx=(0, 20))
-        
         self.proxy_var = tk.StringVar(value=app_config.get("proxy_quality"))
-        proxy_opts = list(QUALITY_FORMATS["Proxies"].keys())
-        self.proxy_cb = ttk.Combobox(proxy_frame, textvariable=self.proxy_var, values=proxy_opts, state="readonly", font=("Poppins", 11), width=25)
+        # Get labels from stored commands
+        proxy_opts = list(app_config.get("format_commands")["Proxies"].keys())
+        self.proxy_cb = ttk.Combobox(proxy_frame, textvariable=self.proxy_var, values=proxy_opts, state="readonly", font=("Poppins", 11), width=20)
         self.proxy_cb.pack(side=tk.LEFT)
 
-        # Clips Quality
+        tk.Label(proxy_frame, text="Codec: ", font=("Poppins", 12), fg='white', bg="#1A1A1D").pack(side=tk.LEFT, padx=(30, 10))
+        self.proxy_codec_var = tk.StringVar(value=app_config.get("proxy_codec"))
+        codec_opts = list(CODEC_OPTIONS.keys())
+        self.proxy_codec_cb = ttk.Combobox(proxy_frame, textvariable=self.proxy_codec_var, values=codec_opts, state="readonly", font=("Poppins", 11), width=20)
+        self.proxy_codec_cb.pack(side=tk.LEFT)
+
+        # Clips Quality & Codec
         clips_frame = tk.Frame(self.frame_content, bg='#1A1A1D')
         clips_frame.pack(fill=tk.X, padx=30, pady=10)
 
         tk.Label(clips_frame, text="Clips Quality: ", font=("Poppins", 12), fg='white', bg="#1A1A1D").pack(side=tk.LEFT, padx=(0, 20))
-
         self.clips_var = tk.StringVar(value=app_config.get("clips_quality"))
-        clips_opts = list(QUALITY_FORMATS["Clips"].keys())
-        self.clips_cb = ttk.Combobox(clips_frame, textvariable=self.clips_var, values=clips_opts, state="readonly", font=("Poppins", 11), width=25)
+        clips_opts = list(app_config.get("format_commands")["Clips"].keys())
+        self.clips_cb = ttk.Combobox(clips_frame, textvariable=self.clips_var, values=clips_opts, state="readonly", font=("Poppins", 11), width=20)
         self.clips_cb.pack(side=tk.LEFT)
+
+        tk.Label(clips_frame, text="Codec: ", font=("Poppins", 12), fg='white', bg="#1A1A1D").pack(side=tk.LEFT, padx=(30, 10))
+        self.clips_codec_var = tk.StringVar(value=app_config.get("clips_codec"))
+        self.clips_codec_cb = ttk.Combobox(clips_frame, textvariable=self.clips_codec_var, values=codec_opts, state="readonly", font=("Poppins", 11), width=20)
+        self.clips_codec_cb.pack(side=tk.LEFT)
 
         # Buttons
         buttons_frame = tk.Frame(self.frame_content, bg='#1A1A1D')
@@ -525,13 +560,36 @@ class Settings(Page):
         return self.frame_content
 
     def save_settings(self):
+        old_proxy_codec = app_config.get("proxy_codec")
+        old_clips_codec = app_config.get("clips_codec")
+        
+        new_proxy_codec = self.proxy_codec_var.get()
+        new_clips_codec = self.clips_codec_var.get()
+        
         app_config.set("proxy_quality", self.proxy_var.get())
         app_config.set("clips_quality", self.clips_var.get())
+        app_config.set("proxy_codec", new_proxy_codec)
+        app_config.set("clips_codec", new_clips_codec)
+        
+        # If codec changed, regenerate relevant commands
+        if old_proxy_codec != new_proxy_codec:
+            app_config.regenerate_commands("Proxies")
+        if old_clips_codec != new_clips_codec:
+            app_config.regenerate_commands("Clips")
+            
         messagebox.showinfo("Success", "Settings have been safely updated.")
 
     def reset_settings(self):
         self.proxy_var.set("360p")
         self.clips_var.set("Best Available")
+        self.proxy_codec_var.set("H.264 (Compatible)")
+        self.clips_codec_var.set("H.264 (Compatible)")
+        
         app_config.set("proxy_quality", "360p")
         app_config.set("clips_quality", "Best Available")
+        app_config.set("proxy_codec", "H.264 (Compatible)")
+        app_config.set("clips_codec", "H.264 (Compatible)")
+        
+        app_config.regenerate_all_commands()
+        
         messagebox.showinfo("Reset", "Settings have been reverted to defaults.")

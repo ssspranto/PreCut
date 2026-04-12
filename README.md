@@ -11,7 +11,8 @@ A modern, dark-themed desktop application designed to streamline video content c
 - **📺 Transcript Generator**: Automatically fetch and clean transcripts from online video sources. Strips WebVTT formatting, timestamps, and redundant tags to give you a clean, usable script instantly.
 - **📥 Clips Downloader**: Download high-quality video clips directly into your project folders. Features a custom inline terminal log for real-time `yt-dlp` transparency.
 - **⚡ Proxy Downloader**: Create lightweight proxies (360p/480p) for faster editing timelines.
-- **⚙️ Persistent Settings**: Configure global download quality and project paths once. Settings are stored securely in your user Documents folder, persisting between sessions.
+- **🎬 Codec Selector**: Choose between H.264 (Compatible), AV1 (Efficient), and VP9 (Highest Quality). Defaults to H.264 for perfect compatibility with Adobe Premiere Pro and DaVinci Resolve.
+- **⚙️ Persistent Settings & Power User Controls**: Configure global download quality and project paths. Full `yt-dlp` command strings are now stored in your configuration, allowing you to add custom flags manually.
 - **🏗️ Smart Concurrency**: Built-in protection allows up to 2 concurrent downloads per page with duplicate URL detection to prevent resource waste.
 - **🧹 Clean Workspace**: Automated `__pycache__` relocation and temporary file cleanup to keep your project source code pristine.
 
