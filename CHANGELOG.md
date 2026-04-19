@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.1] - 2026-04-19
+
+### Fixed
+- Proxy Downloader output filenames now use the pattern **`basename_Proxy.ext`** (e.g. `MyVideo_Proxy.mp4`) instead of **`basename.ext_proxy`**, so the file keeps a valid video extension for editors and the OS.
+
 ## [1.1.0] - 2026-04-12
 
 ### Added

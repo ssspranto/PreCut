@@ -437,7 +437,7 @@ class ProxyDownloader(Page):
 
         try:
             command = shlex.split(command_prefix)
-            output_path = str(pathlib.Path(Page.project_location) / "Proxies" / "%(title)s.%(ext)s_Proxy")
+            output_path = str(pathlib.Path(Page.project_location) / "Proxies" / "%(title)s_Proxy.%(ext)s")
             command.extend(['-o', output_path, url])
         except Exception as e:
             messagebox.showerror("Command Error", f"Failed to parse command: {e}")
