@@ -13,16 +13,16 @@ CODEC_OPTIONS = {
 # These will be used to generate the full command strings
 QUALITY_FORMAT_TEMPLATES = {
     "Clips": {
-        "Best Available": "bestvideo[{codec}][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-        "Up to 4K": "bestvideo[{codec}][height<=2160][ext=mp4]+bestaudio[ext=m4a]/best[height<=2160][ext=mp4]",
-        "Up to 1080p": "bestvideo[{codec}][height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]",
-        "Up to 720p": "bestvideo[{codec}][height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]"
+        "Best Available": "bestvideo[{codec}][ext=mp4]+bestaudio[ext=m4a][asr=44100]/bestvideo[{codec}][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        "Up to 4K": "bestvideo[{codec}][height<=2160][ext=mp4]+bestaudio[ext=m4a][asr=44100]/bestvideo[{codec}][height<=2160][ext=mp4]+bestaudio[ext=m4a]/best[height<=2160][ext=mp4]",
+        "Up to 1080p": "bestvideo[{codec}][height<=1080][ext=mp4]+bestaudio[ext=m4a][asr=44100]/bestvideo[{codec}][height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]",
+        "Up to 720p": "bestvideo[{codec}][height<=720][ext=mp4]+bestaudio[ext=m4a][asr=44100]/bestvideo[{codec}][height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]"
     },
     "Proxies": {
-        "360p": "bestvideo[{codec}][height<=360]+bestaudio/best[height<=360]",
-        "480p": "bestvideo[{codec}][height<=480]+bestaudio/best[height<=480]",
-        "720p": "bestvideo[{codec}][height<=720]+bestaudio/best[height<=720]",
-        "1080p": "bestvideo[{codec}][height<=1080]+bestaudio/best[height<=1080]"
+        "360p": "bestvideo[{codec}][height<=360]+bestaudio[asr=44100]/bestvideo[{codec}][height<=360]+bestaudio/best[height<=360]",
+        "480p": "bestvideo[{codec}][height<=480]+bestaudio[asr=44100]/bestvideo[{codec}][height<=480]+bestaudio/best[height<=480]",
+        "720p": "bestvideo[{codec}][height<=720]+bestaudio[asr=44100]/bestvideo[{codec}][height<=720]+bestaudio/best[height<=720]",
+        "1080p": "bestvideo[{codec}][height<=1080]+bestaudio[asr=44100]/bestvideo[{codec}][height<=1080]+bestaudio/best[height<=1080]"
     }
 }
 
@@ -31,6 +31,10 @@ DEFAULT_SETTINGS = {
     "proxy_quality": "360p",
     "clips_codec": "H.264 (Compatible)",
     "proxy_codec": "H.264 (Compatible)",
+    "use_cookies": False,
+    "cookie_file": "",
+    "use_ejs": True,
+    "js_runtime": "node",
     "project_folder": "",
     "format_commands": {
         "Clips": {},
@@ -46,10 +50,11 @@ class AppConfig:
         
         self.settings = DEFAULT_SETTINGS.copy()
         self.load()
-        
-        # Ensure format_commands are initialized if empty
-        if not self.settings["format_commands"]["Clips"] or not self.settings["format_commands"]["Proxies"]:
-            self.regenerate_all_commands()
+
+        # Always regenerate command strings from current templates and codec settings.
+        # This propagates command-template fixes to existing users without requiring
+        # a manual reset.
+        self.regenerate_all_commands()
 
     def regenerate_all_commands(self):
         self.regenerate_commands("Clips")

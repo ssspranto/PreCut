@@ -4,7 +4,7 @@
 
 A modern, dark-themed desktop application designed to streamline video content creation workflows. **PreCut** provides a centralized interface for generating transcripts, downloading high-quality clips, and managing low-resolution proxies with real-time feedback and smart concurrency management.
 
-> **PreCut v1.1.1** — Proxy downloads now save as `name_Proxy.ext` instead of `name.ext_proxy`, so files keep a valid extension for NLEs and the OS.
+> **PreCut v1.1.4** — Added **EJS (External JavaScript)** support to solve modern YouTube JS challenges using local runtimes like Node.js. Also features improved path handling and clean UI progress labels.
 
 ---
 
@@ -13,8 +13,13 @@ A modern, dark-themed desktop application designed to streamline video content c
 - **📺 Transcript Generator**: Automatically fetch and clean transcripts from online video sources. Strips WebVTT formatting, timestamps, and redundant tags to give you a clean, usable script instantly.
 - **📥 Clips Downloader**: Download high-quality video clips directly into your project folders. Features a custom inline terminal log for real-time `yt-dlp` transparency.
 - **⚡ Proxy Downloader**: Create lightweight proxies (360p/480p) for faster editing timelines. Files are saved under your project’s `Proxies` folder as `Title_Proxy.ext` (e.g. `MyVideo_Proxy.mp4`).
+- **🎵 Unified Audio Sample Rate (44.1 kHz)**: Clips and Proxies now use a hybrid strategy that prefers native `44.1 kHz` tracks (`asr=44100`) and only falls back to `ffmpeg` audio resampling if a source resolves to another rate (such as `48 kHz`).
 - **🎬 Codec Selector**: Choose between H.264 (Compatible), AV1 (Efficient), and VP9 (Highest Quality). Defaults to H.264 for perfect compatibility with Adobe Premiere Pro and DaVinci Resolve.
-- **⚙️ Persistent Settings & Power User Controls**: Configure global download quality and project paths. Full `yt-dlp` command strings are now stored in your configuration, allowing you to add custom flags manually.
+- **🍪 Toggleable Cookies & EJS Support**: Handle bot-check-gated videos using either a standard cookie file or the new **EJS (External JavaScript)** solver. EJS uses local runtimes to solve challenges on-the-fly, significantly improving bypass reliability.
+- **🧠 Smart Runtime Detection**: Built-in system check automatically detects Node.js, Deno, Bun, or QuickJS. The app prevents enabling EJS if no runtime is found and filters the selector to only show installed options, ensuring a foolproof setup.
+- **🧠 JS Runtime Integration**: Choose between multiple runtimes in Settings to power the EJS challenge solver. Automatically pulls the latest solver scripts from GitHub to ensure long-term stability.
+- **🧠 Native yt-dlp Python API Runtime**: Transcript and download workflows now run through the `yt_dlp` package API, enabling cleaner progress hooks, structured error handling, and more reliable cancellation behavior.
+- **⚙️ Persistent Settings & Power User Controls**: Configure global download quality and project paths. Full `yt-dlp` options are now configured directly through the Python API.
 - **🏗️ Smart Concurrency**: Built-in protection allows up to 2 concurrent downloads per page with duplicate URL detection to prevent resource waste.
 - **🧹 Clean Workspace**: Automated `__pycache__` relocation and temporary file cleanup to keep your project source code pristine.
 
@@ -38,7 +43,7 @@ A modern, dark-themed desktop application designed to streamline video content c
 
 - **UI Framework**: Modernized Python `Tkinter` (Custom Dark Theme)
 - **Image Processing**: `Pillow`
-- **Backend Engine**: `yt-dlp`
+- **Backend Engine**: `yt_dlp` (Python Package)
 - **Storage**: Persistent JSON-based configuration
 
 ---
@@ -61,7 +66,7 @@ For users who want to run **PreCut** without installing Python or any libraries,
 ### Prerequisites
 
 - **Python 3.10+**
-- **yt-dlp**: Ensure `yt-dlp` is installed and accessible in your system's PATH.
+- **yt_dlp Python Package**: Automatically installed via `pip install -r requirements.txt`. No standalone `yt-dlp` executable in PATH is required anymore!
 - **FFmpeg**: Required for merging high-quality video/audio streams.
 
 > [!IMPORTANT]
@@ -108,6 +113,9 @@ PreCut/
 PreCut stores its data outside the source folder to ensure a portable and clean development environment:
 - **Settings Path**: `~/Documents/PreCut/data/settings.json`
 - **Cache Path**: `~/Documents/PreCut/data/pycache/`
+- **Cookie Flags in Settings**:
+  - `use_cookies` (default: `false`)
+  - `cookie_file` (default: empty)
 
 ---
 

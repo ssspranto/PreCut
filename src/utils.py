@@ -22,9 +22,20 @@ def check_dependencies():
     missing = []
     if not shutil.which("ffmpeg"):
         missing.append("FFmpeg")
-    if not shutil.which("yt-dlp"):
-        missing.append("yt-dlp")
     return missing
+
+def get_available_js_runtimes():
+    """Detect available JS runtimes on the system"""
+    runtimes = []
+    if shutil.which("node"):
+        runtimes.append("node")
+    if shutil.which("deno"):
+        runtimes.append("deno")
+    if shutil.which("bun"):
+        runtimes.append("bun")
+    if shutil.which("qjs"):
+        runtimes.append("quickjs")
+    return runtimes
 
 # function to change properties of button on hover
 def change_on_hover(button, colorOnHover, colorOnLeave):
