@@ -53,7 +53,7 @@ A modern, dark-themed desktop application designed to streamline video content c
 
 For users who want to run **PreCut** without installing Python or any libraries, a standalone Windows version is available.
 
-1.  **Download** the latest `PreCut` folder from the [Releases](https://github.com/yourusername/PreCut/releases) page.
+1.  **Download** the latest `PreCut` folder from the [Releases](https://github.com/ssspranto/PreCut/releases) page.
 2.  **Extract the ZIP** file to a location of your choice.
 3.  **Run `PreCut.exe`** directly from the folder.
 
@@ -77,7 +77,7 @@ For users who want to run **PreCut** without installing Python or any libraries,
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/yourusername/PreCut.git
+   git clone https://github.com/ssspranto/PreCut.git
    cd PreCut
    ```
 

@@ -32,7 +32,7 @@ We have big plans for PreCut! Here are the core areas where we need your help:
 1. **Fork** the repository on GitHub.
 2. **Clone** your fork locally:
    ```bash
-   git clone https://github.com/yourusername/PreCut.git
+   git clone https://github.com/ssspranto/PreCut.git
    ```
 3. **Create a branch** for your feature or fix:
    ```bash
