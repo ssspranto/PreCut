@@ -8,14 +8,16 @@ sys.pycache_prefix = pycache_dir
 
 import tkinter as tk
 from tkinter import ttk, messagebox
+import customtkinter as ctk
 from page_view import TranscriptGenerator, ClipsDownloader, ProxyDownloader, Home, Settings
 from PIL import Image, ImageTk
 from utils import check_dependencies, get_asset_path
+from ui_theme import COLORS, FONTS, setup_theme
 
-class ServicesView(tk.Frame):
+class ServicesView(ctk.CTkFrame):
     def __init__(self, master, **kw):
-        if 'bg' not in kw and 'background' not in kw:
-            kw['bg'] = '#121212'
+        if 'fg_color' not in kw:
+            kw['fg_color'] = COLORS["bg_dark"]
         super().__init__(master, **kw)
 
         # Key: service name (i.e: 'Script Maker  or 'Clips Downloader')
@@ -31,33 +33,37 @@ class ServicesView(tk.Frame):
         self.create_frame_page().grid(row=0, column=1, sticky="nsew")
 
         # Base home page mapped to our Heading
-        self.pages['Home'] = Home(self.frame_page)
+        h = Home(self.frame_page)
+        self.pages['Home'] = h
+        h.place(relx=0, rely=0, relwidth=1, relheight=1)
 
-    def create_frame_page(self) -> tk.Frame:
+    def create_frame_page(self) -> ctk.CTkFrame:
         '''
         Create the frame that'll show the current service page
         '''
-
-        self.frame_page = tk.Frame(self, bg='#1A1A1D', bd=0)
-
+        self.frame_page = ctk.CTkFrame(self, fg_color=COLORS["bg_card"], corner_radius=15)
         return self.frame_page
 
-    def create_frame_treeview(self) -> tk.Frame: 
+    def create_frame_treeview(self) -> ctk.CTkFrame: 
         """
-        Create the frame that will hold all the services treeview widget 
-        and also instantiate the ServicesTreeView class.
+        Create the frame that will hold the modern Sidebar.
         """
+        self.frame_treeview = ctk.CTkFrame(self, fg_color=COLORS["bg_charcoal"], corner_radius=0, width=280)
+        self.frame_treeview.pack_propagate(False)
 
-        self.frame_treeview = tk.Frame(self, bg='#121212', bd=0)
-
-        self.treeview_services = ServicesTreeView(self.frame_treeview)
-        self.treeview_services.bind("<<TreeviewSelect>>", self.on_treeview_selection_changed)
-        self.treeview_services.bind("<Button-1>", self.on_treeview_click)
-        self.treeview_services.pack(fill=tk.BOTH, expand=True)
+        self.sidebar = Sidebar(self.frame_treeview, on_navigate=self.show_page)
+        self.sidebar.pack(fill=tk.BOTH, expand=True)
 
         return self.frame_treeview
     
+    def on_treeview_selection_changed(self, event):
+        # Deprecated for new sidebar
+        pass
+
     def on_treeview_click(self, event):
+        # Deprecated for new sidebar
+        pass
+
         """
         Handle heading clicks since they do not trigger <<TreeviewSelect>> natively
         """
@@ -81,123 +87,94 @@ class ServicesView(tk.Frame):
         if not selected_items:
             return
             
-        service_name = self.treeview_services.item(selected_items[0]).get("text")
-
-        self.show_page(service_name)
+        pass
 
     def show_page(self, service_name: str):
         '''
-        pack_forget() all pages and pack the given page name
+        Show the page associated with the service_name
         '''
-
-        # Dynamically highlight the heading if we are on the Home page
-        style = ttk.Style()
-        if service_name == 'Home':
-            style.configure("Services.Treeview.Heading", background="#DC143C", foreground="white")
-            style.map("Services.Treeview.Heading", background=[('active', '#FF1E4D')], foreground=[('active', 'white')])
-        else:
-            style.configure("Services.Treeview.Heading", background="#121212", foreground="#FFFFFF")
-            style.map("Services.Treeview.Heading", background=[('active', '#1A1A1D')], foreground=[('active', '#DC143C')])
-
-        for page_name in self.pages.keys():
-            self.pages[page_name].pack_forget()
-
-        self.pages[service_name].pack(fill=tk.BOTH, expand=True)
+        page = self.pages.get(service_name)
+        if page:
+            page.tkraise()
+            self.sidebar.select_item(service_name)
 
     def add_page(self, image_path: str, service_name: str, page):
         '''
         Instantiate a page frame and add it to the pages dictionary
-
-        image_path: a path to an image file
-        service_name: name of the service
-        page: a Page class object
         '''
-
-        # Load the image and convert it to a photo image
+        
+        # Load the image and convert it to a CTkImage
         try:
-            with Image.open(image_path) as img:
-                # Resize the image so it fits nicely as an icon (e.g. 32x32 pixels)
-                img = img.resize((18, 18))
-                # Convert it to a photo image
-                photo_image = ImageTk.PhotoImage(img)
+            pil_img = Image.open(image_path)
+            ctk_image = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(20, 20))
         except Exception:
             # Fallback if icon is missing
-            img = Image.new("RGBA", (18, 18), (0,0,0,0))
-            photo_image = ImageTk.PhotoImage(img)
+            pil_img = Image.new("RGBA", (20, 20), (0,0,0,0))
+            ctk_image = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(20, 20))
         
-        # Add page to dictionary so we can show it when needed
-        self.pages[service_name] = page(self.frame_page)
-
-        # Keep a reference to the image so that it doesn't get garbage collected.
-        self.pages[service_name].image = photo_image
-
-        # Insert the service name into the service treeview.set
-        self.treeview_services.add_service(image=photo_image, section_text=service_name)
-
-
-class ServicesTreeView(ttk.Treeview):
-    def __init__(self, master, **kw):
+        # Instantiate page
+        p = page(self.frame_page)
+        self.pages[service_name] = p
         
-        style = ttk.Style()
-        style.theme_use("clam")
-        
-        # Configure the style for the treeview
-        style.configure(
-            "Services.Treeview", 
-            background="#121212", 
-            fieldbackground="#121212", 
-            foreground="#E0E0E0", 
-            borderwidth=0,
-            bordercolor="#121212",
-            lightcolor="#121212",
-            darkcolor="#121212",
-            font=('Poppins', 14),
-            rowheight=45
+        # Pack it immediately so it's ready for tkraise()
+        p.place(relx=0, rely=0, relwidth=1, relheight=1)
+
+        # Keep a reference
+        self.pages[service_name].image = ctk_image
+
+        # Add the button to the sidebar
+        self.sidebar.add_item(text=service_name, image=ctk_image)
+
+
+class Sidebar(ctk.CTkFrame):
+    def __init__(self, master, on_navigate, **kw):
+        super().__init__(master, fg_color="transparent", **kw)
+        self.on_navigate = on_navigate
+        self.buttons = {}
+
+        # Logo / Title
+        self.logo_label = ctk.CTkLabel(self, text="PRECUT 2.0", font=FONTS["title"], text_color=COLORS["accent_crimson"])
+        self.logo_label.pack(pady=(40, 40), padx=20)
+
+        # Home button (fixed)
+        self.add_item("Home", None) # Home usually doesn't have an icon in the same way or uses a default
+
+    def add_item(self, text, image):
+        if text in self.buttons:
+            return
+            
+        btn = ctk.CTkButton(
+            self,
+            text=text,
+            image=image,
+            compound="left",
+            font=FONTS["header"] if text == "Home" else FONTS["body_bold"],
+            fg_color="transparent",
+            text_color=COLORS["text_main"],
+            hover_color=COLORS["bg_card"],
+            anchor="w",
+            corner_radius=8,
+            height=45,
+            command=lambda: self.on_navigate(text)
         )
-        
-        # Configure selection color (matches the red brand color)
-        style.map(
-            "Services.Treeview", 
-            background=[('selected', '#DC143C')]
-        )
-        
-        style.configure(
-            "Services.Treeview.Heading",
-            background="#121212",
-            foreground="#FFFFFF",
-            borderwidth=0,
-            bordercolor="#121212",
-            lightcolor="#121212",
-            darkcolor="#121212",
-            font=('Poppins', 14, 'bold')
-        )
+        btn.pack(fill=tk.X, padx=15, pady=5)
+        self.buttons[text] = btn
 
-        style.map(
-            "Services.Treeview.Heading",
-            background=[('active', '#1A1A1D')],
-            foreground=[('active', '#DC143C')]
-        )
-        
-        kw['style'] = "Services.Treeview"
-        
-        super().__init__(master, **kw)
-
-        self.heading("#0", text="Home")
-        self.column("#0", width=290, minwidth=250)
-
-    def add_service(self, image, section_text: str):
-        '''
-        Insert a row
-        '''
-
-        self.insert(parent="", index=tk.END, image=image, text=section_text)
+    def select_item(self, text):
+        for name, btn in self.buttons.items():
+            if name == text:
+                btn.configure(fg_color=COLORS["accent_crimson"], text_color="white")
+            else:
+                btn.configure(fg_color="transparent", text_color=COLORS["text_main"])
 
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    root.title("PreCut - Content Workflow Helper")
-    root.geometry('1024x720+450+150')
-    root.configure(bg="#1A1A1D")
+    setup_theme()
+    
+    root = ctk.CTk()
+    root.title("PreCut 2.0 - Content Workflow Suite")
+    root.geometry('1100x750+450+150')
+    root.configure(fg_color=COLORS["bg_dark"])
 
     # Dependency Check
     missing_tools = check_dependencies()
@@ -212,20 +189,17 @@ if __name__ == "__main__":
 
     # App Icon
     try:
-        icon_img = Image.open(get_asset_path('assets/precut.png'))
-        icon_photo = ImageTk.PhotoImage(icon_img)
-        root.iconphoto(True, icon_photo)
+        # icon_pil = Image.open(get_asset_path('assets/precut.png'))
+        # icon_photo = ImageTk.PhotoImage(icon_pil)
+        root.iconbitmap(get_asset_path('assets/precut.ico'))
     except Exception as e:
         print(f"Icon loading error: {e}")
     
-    services = ServicesView(root, relief="flat")
+    services = ServicesView(root)
 
     services.add_page(image_path=get_asset_path('assets/transcript_generator.png'), service_name='Transcript Generator', page=TranscriptGenerator)
-
     services.add_page(image_path=get_asset_path('assets/clips_downloader.png'), service_name='Clip Downloader', page=ClipsDownloader)
-
     services.add_page(image_path=get_asset_path('assets/proxy_downloader.png'), service_name='Proxy Downloader', page=ProxyDownloader)
-
     services.add_page(image_path=get_asset_path('assets/settings.png'), service_name='Settings', page=Settings)
 
     # Initialize app with the Home page displayed

@@ -34,7 +34,7 @@ DEFAULT_SETTINGS = {
     "use_cookies": False,
     "cookie_file": "",
     "use_ejs": True,
-    "js_runtime": "node",
+    "js_runtime": "deno",
     "project_folder": "",
     "format_commands": {
         "Clips": {},

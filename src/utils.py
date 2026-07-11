@@ -3,18 +3,19 @@ import sys
 import shutil
 
 def get_asset_path(relative_path):
-    """ Get absolute path to asset, works for dev and for Nuitka onefile """
-    base_path = os.path.dirname(os.path.abspath(__file__))
+    """ Get absolute path to asset, works for dev, Nuitka onefile, and PyInstaller """
+    # PyInstaller onefile: assets live in sys._MEIPASS
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        base_path = sys._MEIPASS
+    else:
+        base_path = os.path.dirname(os.path.abspath(__file__))
     
-    # During dev: utils.py is in src/, assets are in ../assets
-    # During Nuitka build: common to flatten src, making assets a sibling
-    
-    # Try sibling first (bundled mode)
+    # Try direct (bundled mode - Nuitka or PyInstaller)
     path = os.path.join(base_path, relative_path)
     if os.path.exists(path):
         return path
         
-    # Try one level up (dev mode)
+    # Try one level up (dev mode: utils.py is in src/, assets are in ../assets)
     return os.path.join(base_path, "..", relative_path)
 
 def check_dependencies():

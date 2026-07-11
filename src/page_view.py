@@ -1,5 +1,6 @@
+import customtkinter as ctk
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import messagebox, filedialog
 import threading
 import subprocess
 import re
@@ -8,10 +9,17 @@ import pathlib
 import shlex
 import glob
 import yt_dlp
+import requests
+from io import BytesIO
+from PIL import Image
 from utils import *
 from config import app_config, CODEC_OPTIONS
+from ui_theme import COLORS, FONTS
 
 class DownloadCancelled(Exception):
+    pass
+
+class DownloadPaused(Exception):
     pass
 
 def apply_cookie_option(ydl_opts):
@@ -52,48 +60,103 @@ class YdlPanelLogger:
     def error(self, msg):
         self.panel.queue_log(f"ERROR: {msg}\n")
 
-class DownloadingPanel(tk.Frame):
+class DownloadCard(ctk.CTkFrame):
     def __init__(self, master, url, ydl_opts, on_finish_callback=None, **kw):
-        if 'bg' not in kw:
-            kw['bg'] = '#2B2B2B'
-        super().__init__(master, **kw)
+        if 'fg_color' not in kw:
+            kw['fg_color'] = COLORS["bg_card"]
+        super().__init__(master, corner_radius=12, **kw)
+        
         self.url = url
         self.ydl_opts = dict(ydl_opts)
         self.on_finish_callback = on_finish_callback
         self.cancel_requested = False
         self._closed = False
         self.downloaded_files = []
+        self.show_logs = False
 
-        self.downloading_name = tk.Label(self, text="Starting download...", font=('Poppins', 12, "bold"), fg='white', bg="#2B2B2B")
-        self.downloading_name.pack(anchor="w", padx=20, pady=(15, 5))
-        
-        self.download_progress = ttk.Progressbar(self, orient='horizontal', mode='determinate')
-        self.download_progress.pack(fill=tk.X, padx=20, pady=5)
+        # Content Layout
+        self.grid_columnconfigure(1, weight=1)
 
-        # Terminal log output mapping
-        self.log_text = tk.Text(self, height=6, bg="#1E1E1E", fg="#A0A0A0", font=('Consolas', 9), relief="flat", highlightthickness=1, highlightbackground='#3E3E42', padx=10, pady=5)
-        self.log_text.pack(fill=tk.BOTH, expand=True, padx=20, pady=(5, 5))
-        self.log_text.configure(state='disabled')
+        # Thumbnail (Placeholder)
+        self.thumb_label = ctk.CTkLabel(self, text="🎬", font=("Inter", 24), width=100, height=70, fg_color="#2B2B2B", corner_radius=8)
+        self.thumb_label.grid(row=0, column=0, rowspan=2, padx=15, pady=15, sticky="n")
 
-        bottom_frame = tk.Frame(self, bg='#2B2B2B')
-        bottom_frame.pack(fill=tk.X, padx=20, pady=(5, 15))
+        # Info & Progress Area
+        self.info_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.info_frame.grid(row=0, column=1, sticky="nsew", padx=(0, 15), pady=15)
 
-        self.speed_display = tk.Label(bottom_frame, text='Download Speed: N/A', font=('Poppins', 10), fg='#B3B3B3', bg="#2B2B2B")
-        self.speed_display.pack(side=tk.LEFT)
+        self.title_label = ctk.CTkLabel(self.info_frame, text="Analyzing video...", font=FONTS["body_bold"], text_color="white", anchor="w")
+        self.title_label.pack(fill=tk.X)
 
-        self.stop_button = tk.Button(bottom_frame, text="Cancel", font=("Poppins", 10, "bold"), fg="white", bg='#DC143C', activebackground='#A60F2D', activeforeground='white', relief="flat", bd=0, cursor="hand2", command=self.stop_download)
-        self.stop_button.pack(side=tk.RIGHT, ipadx=15, ipady=4)
-        change_on_hover(self.stop_button, '#FF1E4D' ,'#DC143C')
+        self.progress_bar = ctk.CTkProgressBar(self.info_frame, orientation="horizontal", height=8, progress_color=COLORS["accent_crimson"])
+        self.progress_bar.set(0)
+        self.progress_bar.pack(fill=tk.X, pady=(10, 5))
 
+        self.status_frame = ctk.CTkFrame(self.info_frame, fg_color="transparent")
+        self.status_frame.pack(fill=tk.X)
+
+        self.speed_label = ctk.CTkLabel(self.status_frame, text="Speed: --", font=FONTS["small"], text_color=COLORS["text_dim"])
+        self.speed_label.pack(side=tk.LEFT)
+
+        self.size_label = ctk.CTkLabel(self.status_frame, text="-- / --", font=FONTS["small"], text_color=COLORS["text_dim"])
+        self.size_label.pack(side=tk.RIGHT)
+
+        # Action Area
+        self.actions_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.actions_frame.grid(row=0, column=2, rowspan=2, padx=15, pady=15, sticky="ne")
+
+        self.cancel_btn = ctk.CTkButton(self.actions_frame, text="Cancel", width=80, height=30, fg_color="#3E3E42", hover_color=COLORS["accent_crimson"], command=self.stop_download)
+        self.cancel_btn.pack(pady=(0, 10))
+
+        self.pause_btn = ctk.CTkButton(self.actions_frame, text="Pause", width=80, height=30, fg_color="transparent", border_width=1, border_color="#3E3E42", command=self.toggle_pause)
+        self.pause_btn.pack(pady=(0, 10))
+
+        self.log_btn = ctk.CTkButton(self.actions_frame, text="Logs", width=80, height=30, fg_color="transparent", border_width=1, border_color="#3E3E42", command=self.toggle_logs)
+        self.log_btn.pack()
+
+        # Collapsible Log Box
+        self.log_box = ctk.CTkTextbox(self, height=0, fg_color="#1E1E1E", text_color="#A0A0A0", font=("Consolas", 11), border_color="#3E3E42", border_width=1)
+        self.log_box.grid(row=2, column=0, columnspan=3, padx=15, pady=(0, 15), sticky="nsew")
+        self.log_box.grid_remove() # Hidden by default
+
+        self.is_paused = False
+        self._last_thumb_url = None
         self.download_thread = threading.Thread(target=self.start_download, daemon=True)
         self.download_thread.start()
+
+    def toggle_logs(self):
+        self.show_logs = not self.show_logs
+        if self.show_logs:
+            self.log_box.grid()
+            self.log_box.configure(height=120)
+        else:
+            self.log_box.grid_remove()
 
     def start_download(self):
         try:
             runtime_opts = dict(self.ydl_opts)
             runtime_opts["logger"] = YdlPanelLogger(self)
             runtime_opts["progress_hooks"] = [self.on_progress_update]
+            
+            # Fetch metadata first to get Title/Thumbnail
             with yt_dlp.YoutubeDL(runtime_opts) as ydl:
+                info = ydl.extract_info(self.url, download=False)
+                
+                # Check if it's a playlist to provide a better initial title
+                is_playlist = info.get('_type') == 'playlist'
+                title = info.get("title", "Unknown Video")
+                if is_playlist:
+                    title = f"Playlist: {title}"
+                
+                thumb_url = info.get("thumbnail")
+                self._last_thumb_url = thumb_url
+                
+                self.after(0, lambda t=title: self.title_label.configure(text=t))
+                
+                if thumb_url:
+                    threading.Thread(target=self.load_thumbnail, args=(thumb_url,), daemon=True).start()
+
+                # Start actual download
                 ydl.download([self.url])
 
             if self.cancel_requested:
@@ -103,9 +166,13 @@ class DownloadingPanel(tk.Frame):
 
             self.normalize_downloaded_audio()
             self.after(0, self.on_finish)
-        except DownloadCancelled:
-            self.queue_log("[download] Cancelled by user.\n")
-            self.after(0, self._close_panel)
+        except (DownloadCancelled, DownloadPaused) as e:
+            if isinstance(e, DownloadPaused):
+                self.queue_log("[download] Paused by user.\n")
+                self.after(0, lambda: self.speed_label.configure(text="Status: Paused", text_color=COLORS["accent_crimson"]))
+            else:
+                self.queue_log("[download] Cancelled by user.\n")
+                self.after(0, self._close_panel)
         except yt_dlp.utils.DownloadError as e:
             if not self.cancel_requested:
                 self.after(0, lambda err=e: messagebox.showerror("Download Error", str(err)))
@@ -114,6 +181,33 @@ class DownloadingPanel(tk.Frame):
             self.after(0, lambda err=e: messagebox.showerror("Download Error", str(err)))
             self.after(0, self._close_panel)
 
+    def load_thumbnail(self, url):
+        try:
+            # Add a user-agent to avoid being blocked by some CDNs
+            headers = {"User-Agent": "Mozilla/5.0"}
+            response = requests.get(url, timeout=10, headers=headers)
+            img_data = BytesIO(response.content)
+            pil_img = Image.open(img_data)
+            
+            # Create CTkImage for scaling
+            ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(100, 70))
+            
+            if self.winfo_exists():
+                # We MUST keep a reference to the image object or it gets garbage collected
+                self.thumbnail_ref = ctk_img 
+                self.after(0, self._safe_update_thumbnail)
+        except Exception as e:
+            print(f"Thumbnail load error: {e}")
+
+    def _safe_update_thumbnail(self):
+        """Safely update the UI only if the widget still exists"""
+        try:
+            if self.winfo_exists() and hasattr(self, 'thumbnail_ref'):
+                self.thumb_label.configure(image=self.thumbnail_ref, text="")
+        except Exception:
+            pass # Widget likely destroyed during update
+
+
     def on_finish(self):
         messagebox.showinfo("Download Completed!", "Video files have been successfully downloaded.")
         self._close_panel()
@@ -121,10 +215,26 @@ class DownloadingPanel(tk.Frame):
     def append_log(self, text):
         if not self.winfo_exists():
             return
-        self.log_text.configure(state='normal')
-        self.log_text.insert(tk.END, text)
-        self.log_text.see(tk.END)
-        self.log_text.configure(state='disabled')
+        self.log_box.configure(state='normal')
+        self.log_box.insert(tk.END, text)
+        self.log_box.see(tk.END)
+        self.log_box.configure(state='disabled')
+
+    def toggle_pause(self):
+        if not self.is_paused:
+            # Pausing
+            self.is_paused = True
+            self.pause_btn.configure(text="Resume", fg_color=COLORS["accent_crimson"], text_color="white")
+            self.queue_log("[download] Pausing...\n")
+        else:
+            # Resuming
+            self.is_paused = False
+            self.pause_btn.configure(text="Pause", fg_color="transparent", text_color="white")
+            self.queue_log("[download] Resuming...\n")
+            self.speed_label.configure(text="Speed: Resuming...", text_color=COLORS["text_dim"])
+            # Start a new thread to resume
+            self.download_thread = threading.Thread(target=self.start_download, daemon=True)
+            self.download_thread.start()
 
     def stop_download(self):
         self.cancel_requested = True
@@ -140,11 +250,12 @@ class DownloadingPanel(tk.Frame):
         if self.winfo_exists():
             self.destroy()
 
-    def update_progress(self, percentage, speed):
+    def update_progress(self, percentage, speed, size_info):
         if not self.winfo_exists():
             return
-        self.download_progress['value'] = percentage
-        self.speed_display.config(text=f'Download Speed: {speed}')
+        self.progress_bar.set(percentage / 100)
+        self.speed_label.configure(text=f'Speed: {speed}')
+        self.size_label.configure(text=size_info)
 
     def queue_log(self, text):
         if self.winfo_exists():
@@ -153,16 +264,32 @@ class DownloadingPanel(tk.Frame):
     def on_progress_update(self, data):
         if self.cancel_requested:
             raise DownloadCancelled()
+        if self.is_paused:
+            raise DownloadPaused()
+
+        # Update title/thumbnail dynamically (crucial for playlists)
+        info_dict = data.get("info_dict", {})
+        if info_dict:
+            new_title = info_dict.get("title")
+            # Only update if the title is actually different to avoid flickering
+            if new_title and new_title != self.title_label.cget("text"):
+                self.after(0, lambda t=new_title: self.title_label.configure(text=t))
+            
+            new_thumb = info_dict.get("thumbnail")
+            if new_thumb and self._last_thumb_url != new_thumb:
+                self._last_thumb_url = new_thumb
+                threading.Thread(target=self.load_thumbnail, args=(new_thumb,), daemon=True).start()
 
         status = data.get("status")
-        file_name = os.path.basename(data.get("filename") or "")
-        if file_name:
-            self.after(0, lambda n=file_name: self.downloading_name.config(text=n))
-
         if status == "downloading":
             percentage = self._percent_to_float(data.get("_percent_str"))
             speed = data.get("_speed_str", "N/A")
-            self.after(0, lambda p=percentage, s=speed: self.update_progress(p, s))
+            
+            downloaded = data.get("_downloaded_bytes_str", "0B")
+            total = data.get("_total_bytes_str") or data.get("_total_bytes_estimate_str", "N/A")
+            size_info = f"{downloaded} / {total}"
+            
+            self.after(0, lambda p=percentage, s=speed, si=size_info: self.update_progress(p, s, si))
         elif status == "finished":
             final_file = data.get("filename")
             if final_file and final_file not in self.downloaded_files:
@@ -265,11 +392,11 @@ class DownloadingPanel(tk.Frame):
         except Exception:
             return None
 
-class Page(tk.Frame):
+class Page(ctk.CTkFrame):
     project_location = ""
     def __init__(self, master, **kw):
-        if 'bg' not in kw and 'background' not in kw:
-            kw['bg'] = '#1A1A1D'
+        if 'fg_color' not in kw:
+            kw['fg_color'] = '#1A1A1D'
         super().__init__(master, **kw)
 
 class TranscriptGenerator(Page):
@@ -277,32 +404,56 @@ class TranscriptGenerator(Page):
         super().__init__(master, **kw)
         self.create_frame_content().pack(fill=tk.BOTH, expand=True)
 
-    def create_frame_content(self) -> tk.Frame:
+    def create_frame_content(self) -> ctk.CTkFrame:
         """
         Create the widgets specific to this service (TranscriptGenerator)
-
         """
-
-        self.frame_content = tk.Frame(self, bg='#1A1A1D')
+        self.frame_content = ctk.CTkFrame(self, fg_color="transparent")
 
         # url location
-        tk.Label(self.frame_content, text="Enter Video Link:", font=("Poppins", 16, "bold"), fg='white', bg="#1A1A1D").pack(anchor="w", padx=30, pady=(40, 5))
-        self.url_box = tk.Entry(self.frame_content, bg='#2B2B2B', fg='white', insertbackground='white', relief='flat', font=('Poppins', 12), highlightthickness=1, highlightbackground='#3E3E42', highlightcolor='#DC143C')
+        ctk.CTkLabel(self.frame_content, text="Enter Video Link:", font=FONTS["header"], text_color='white').pack(anchor="w", padx=30, pady=(40, 5))
+        
+        self.url_box = ctk.CTkEntry(
+            self.frame_content, 
+            fg_color='#2B2B2B', 
+            text_color='white', 
+            border_color='#3E3E42',
+            border_width=1,
+            font=FONTS["body"], 
+            placeholder_text="https://www.youtube.com/watch?v=..."
+        )
         self.url_box.pack(fill=tk.X, padx=30, pady=(0, 20), ipady=8)
 
         # transcript button
-        self.btn_frame = tk.Frame(self.frame_content, bg='#1A1A1D')
+        self.btn_frame = ctk.CTkFrame(self.frame_content, fg_color="transparent")
         self.btn_frame.pack(fill=tk.X, padx=30, pady=(0, 20))
         
-        self.transcript_button = tk.Button(self.btn_frame, text="Transcript It", font=("Poppins", 12, "bold"), fg="white", bg='#DC143C', activebackground='#A60F2D', activeforeground='white', relief="flat", bd=0, cursor="hand2", command=self.generate)
+        self.transcript_button = ctk.CTkButton(
+            self.btn_frame, 
+            text="Transcript It", 
+            font=FONTS["body_bold"],
+            fg_color=COLORS["accent_crimson"], 
+            hover_color=COLORS["accent_glow"],
+            corner_radius=8,
+            command=self.generate
+        )
         self.transcript_button.pack(side=tk.LEFT, ipady=8, ipadx=40)
-        change_on_hover(self.transcript_button, '#FF1E4D', '#DC143C')
         
-        self.status_label = tk.Label(self.btn_frame, text="", font=("Poppins", 11), fg="#AAAAAA", bg="#1A1A1D")
+        self.status_label = ctk.CTkLabel(self.btn_frame, text="", font=FONTS["small"], text_color="#AAAAAA")
         self.status_label.pack(side=tk.LEFT, padx=20)
 
-        # Output Text Box
-        self.text_box = tk.Text(self.frame_content, bg='#2B2B2B', fg='white', font=('Poppins', 12), relief='flat', highlightthickness=1, highlightbackground='#3E3E42', insertbackground='white', state=tk.DISABLED)
+        # Output Text Box (We'll use a standard tk.Text inside a CTkFrame for better scroll control if needed, 
+        # or just ctk.CTkTextbox)
+        self.text_box = ctk.CTkTextbox(
+            self.frame_content, 
+            fg_color='#2B2B2B', 
+            text_color='white', 
+            font=FONTS["body"], 
+            border_color='#3E3E42',
+            border_width=1,
+            corner_radius=8,
+            state="disabled"
+        )
         self.text_box.pack(fill=tk.BOTH, expand=True, padx=30, pady=(0, 30))
 
         return self.frame_content
@@ -317,11 +468,11 @@ class TranscriptGenerator(Page):
             messagebox.showerror("Error", "Please provide a video URL.")
             return
 
-        self.transcript_button.config(state=tk.DISABLED, bg="#888888")
-        self.status_label.config(text="Fetching transcript...")
-        self.text_box.config(state=tk.NORMAL)
+        self.transcript_button.configure(state="disabled", fg_color="#888888")
+        self.status_label.configure(text="Fetching transcript...")
+        self.text_box.configure(state="normal")
         self.text_box.delete("1.0", tk.END)
-        self.text_box.config(state=tk.DISABLED)
+        self.text_box.configure(state="disabled")
 
         import threading
         t = threading.Thread(target=self.fetch_and_process, args=(url,))
@@ -413,19 +564,19 @@ class TranscriptGenerator(Page):
     def on_error(self, message):
         if not self.winfo_exists():
             return
-        self.transcript_button.config(state=tk.NORMAL, bg="#DC143C")
-        self.status_label.config(text="")
+        self.transcript_button.configure(state="normal", fg_color=COLORS["accent_crimson"])
+        self.status_label.configure(text="")
         messagebox.showerror("Error", message)
 
     def on_success(self, text, path):
         if not self.winfo_exists():
             return
-        self.transcript_button.config(state=tk.NORMAL, bg="#DC143C")
-        self.status_label.config(text="Success!")
+        self.transcript_button.configure(state="normal", fg_color=COLORS["accent_crimson"])
+        self.status_label.configure(text="Success!")
         
-        self.text_box.config(state=tk.NORMAL)
+        self.text_box.configure(state="normal")
         self.text_box.insert("1.0", text)
-        self.text_box.config(state=tk.DISABLED)
+        self.text_box.configure(state="disabled")
         
         try:
             os.startfile(str(path))
@@ -440,35 +591,56 @@ class ClipsDownloader(Page):
 
         self.create_frame_content().pack(fill=tk.BOTH, expand=True)
 
-    def create_frame_content(self) -> tk.Frame:
+    def create_frame_content(self) -> ctk.CTkFrame:
         """
         Create the widgets specific to this service (Clips Downloader)
-
         """
-
-        self.frame_content = tk.Frame(self, bg='#1A1A1D')
+        self.frame_content = ctk.CTkFrame(self, fg_color="transparent")
 
         #url location
-        tk.Label(self.frame_content, text="Enter Video/Playlist URL for Clips:", font=("Poppins", 16, "bold"), fg='white', bg="#1A1A1D").pack(anchor="w", padx=30, pady=(40, 5))
-        self.url_box = tk.Entry(self.frame_content, bg='#2B2B2B', fg='white', insertbackground='white', relief='flat', font=('Poppins', 12), highlightthickness=1, highlightbackground='#3E3E42', highlightcolor='#DC143C')
+        ctk.CTkLabel(self.frame_content, text="Enter Video/Playlist URL for Clips:", font=FONTS["header"], text_color='white').pack(anchor="w", padx=30, pady=(40, 5))
+        
+        self.url_box = ctk.CTkEntry(
+            self.frame_content, 
+            fg_color='#2B2B2B', 
+            text_color='white', 
+            border_color='#3E3E42',
+            border_width=1,
+            font=FONTS["body"],
+            placeholder_text="https://..."
+        )
         self.url_box.pack(fill=tk.X, padx=30, pady=(0, 20), ipady=8)
 
         #buttons frame
-        buttons_frame = tk.Frame(self.frame_content, bg='#1A1A1D')
+        buttons_frame = ctk.CTkFrame(self.frame_content, fg_color="transparent")
         buttons_frame.pack(pady=(0, 20))
 
         #download button
-        self.download_button = tk.Button(buttons_frame, text="Download Clips", font=("Poppins", 12, "bold"), fg="white", bg='#DC143C', activebackground='#A60F2D', activeforeground='white', relief="flat", bd=0, cursor="hand2", command=self.download)
+        self.download_button = ctk.CTkButton(
+            buttons_frame, 
+            text="Download Clips", 
+            font=FONTS["body_bold"],
+            fg_color=COLORS["accent_crimson"], 
+            hover_color=COLORS["accent_glow"],
+            corner_radius=8,
+            command=self.download
+        )
         self.download_button.pack(side=tk.LEFT, padx=(0, 15), ipady=8, ipadx=30)
-        change_on_hover(self.download_button, '#FF1E4D' ,'#DC143C')
 
         #show downloads button
-        self.show_dir_button = tk.Button(buttons_frame, text="Show Downloads", font=("Poppins", 12, "bold"), fg="white", bg='#3E3E42', activebackground='#4A4A4F', activeforeground='white', relief="flat", bd=0, cursor="hand2", command=self.open_downloads_folder)
+        self.show_dir_button = ctk.CTkButton(
+            buttons_frame, 
+            text="Show Downloads", 
+            font=FONTS["body_bold"],
+            fg_color='#3E3E42', 
+            hover_color='#4A4A4F',
+            corner_radius=8,
+            command=self.open_downloads_folder
+        )
         self.show_dir_button.pack(side=tk.LEFT, ipady=8, ipadx=20)
-        change_on_hover(self.show_dir_button, '#4A4A4F', '#3E3E42')
 
-        self.panels_frame = tk.Frame(self.frame_content, bg='#1A1A1D')
-        self.panels_frame.pack(fill=tk.BOTH, expand=True)
+        self.panels_frame = ctk.CTkScrollableFrame(self.frame_content, fg_color="transparent", label_text="Active Downloads", label_font=FONTS["small"])
+        self.panels_frame.pack(fill=tk.BOTH, expand=True, padx=30, pady=(0, 10))
 
         self.active_downloads = {}
         return self.frame_content
@@ -515,7 +687,7 @@ class ClipsDownloader(Page):
         }
         apply_cookie_option(ydl_opts)
 
-        panel = DownloadingPanel(self.panels_frame, url, ydl_opts, on_finish_callback=self.on_download_complete)
+        panel = DownloadCard(self.panels_frame, url, ydl_opts, on_finish_callback=self.on_download_complete)
         panel.pack(fill=tk.X, padx=30, pady=(0, 10))
         self.active_downloads[panel] = url
 
@@ -538,35 +710,56 @@ class ProxyDownloader(Page):
 
         self.create_frame_content().pack(fill=tk.BOTH, expand=True)
 
-    def create_frame_content(self) -> tk.Frame:
+    def create_frame_content(self) -> ctk.CTkFrame:
         """
         Create the widgets specific to this service (Proxy Downloader)
-
         """
-
-        self.frame_content = tk.Frame(self, bg='#1A1A1D')
+        self.frame_content = ctk.CTkFrame(self, fg_color="transparent")
 
         #url location
-        tk.Label(self.frame_content, text="Enter Video/Playlist URL for Proxy:", font=("Poppins", 16, "bold"), fg='white', bg="#1A1A1D").pack(anchor="w", padx=30, pady=(40, 5))
-        self.url_box = tk.Entry(self.frame_content, bg='#2B2B2B', fg='white', insertbackground='white', relief='flat', font=('Poppins', 12), highlightthickness=1, highlightbackground='#3E3E42', highlightcolor='#DC143C')
+        ctk.CTkLabel(self.frame_content, text="Enter Video/Playlist URL for Proxy:", font=FONTS["header"], text_color='white').pack(anchor="w", padx=30, pady=(40, 5))
+        
+        self.url_box = ctk.CTkEntry(
+            self.frame_content, 
+            fg_color='#2B2B2B', 
+            text_color='white', 
+            border_color='#3E3E42',
+            border_width=1,
+            font=FONTS["body"],
+            placeholder_text="https://..."
+        )
         self.url_box.pack(fill=tk.X, padx=30, pady=(0, 20), ipady=8)
 
         #buttons frame
-        buttons_frame = tk.Frame(self.frame_content, bg='#1A1A1D')
+        buttons_frame = ctk.CTkFrame(self.frame_content, fg_color="transparent")
         buttons_frame.pack(pady=(0, 20))
 
         #download button
-        self.download_button = tk.Button(buttons_frame, text="Download Proxy", font=("Poppins", 12, "bold"), fg="white", bg='#DC143C', activebackground='#A60F2D', activeforeground='white', relief="flat", bd=0, cursor="hand2", command=self.download)
+        self.download_button = ctk.CTkButton(
+            buttons_frame, 
+            text="Download Proxy", 
+            font=FONTS["body_bold"],
+            fg_color=COLORS["accent_crimson"], 
+            hover_color=COLORS["accent_glow"],
+            corner_radius=8,
+            command=self.download
+        )
         self.download_button.pack(side=tk.LEFT, padx=(0, 15), ipady=8, ipadx=30)
-        change_on_hover(self.download_button, '#FF1E4D' ,'#DC143C')
 
         #show downloads button
-        self.show_dir_button = tk.Button(buttons_frame, text="Show Downloads", font=("Poppins", 12, "bold"), fg="white", bg='#3E3E42', activebackground='#4A4A4F', activeforeground='white', relief="flat", bd=0, cursor="hand2", command=self.open_downloads_folder)
+        self.show_dir_button = ctk.CTkButton(
+            buttons_frame, 
+            text="Show Downloads", 
+            font=FONTS["body_bold"],
+            fg_color='#3E3E42', 
+            hover_color='#4A4A4F',
+            corner_radius=8,
+            command=self.open_downloads_folder
+        )
         self.show_dir_button.pack(side=tk.LEFT, ipady=8, ipadx=20)
-        change_on_hover(self.show_dir_button, '#4A4A4F', '#3E3E42')
 
-        self.panels_frame = tk.Frame(self.frame_content, bg='#1A1A1D')
-        self.panels_frame.pack(fill=tk.BOTH, expand=True)
+        self.panels_frame = ctk.CTkScrollableFrame(self.frame_content, fg_color="transparent", label_text="Active Proxies", label_font=FONTS["small"])
+        self.panels_frame.pack(fill=tk.BOTH, expand=True, padx=30, pady=(0, 10))
 
         self.active_downloads = {}
         return self.frame_content
@@ -612,7 +805,7 @@ class ProxyDownloader(Page):
         }
         apply_cookie_option(ydl_opts)
 
-        panel = DownloadingPanel(self.panels_frame, url, ydl_opts, on_finish_callback=self.on_download_complete)
+        panel = DownloadCard(self.panels_frame, url, ydl_opts, on_finish_callback=self.on_download_complete)
         panel.pack(fill=tk.X, padx=30, pady=(0, 10))
         self.active_downloads[panel] = url
 
@@ -634,30 +827,47 @@ class Home(Page):
         super().__init__(master, **kw)
         self.create_frame_content().pack(fill=tk.BOTH, expand=True)
 
-    def create_frame_content(self) -> tk.Frame:
-        self.frame_content = tk.Frame(self, bg='#1A1A1D')
+    def create_frame_content(self) -> ctk.CTkFrame:
+        self.frame_content = ctk.CTkFrame(self, fg_color="transparent")
 
-        #project folder location entry
-        tk.Label(self.frame_content, text="Project Folder Location:", font=("Poppins", 16, "bold"), fg='white', bg="#1A1A1D").pack(anchor="w", padx=30, pady=(40, 5))
+        # project folder location entry
+        ctk.CTkLabel(self.frame_content, text="Project Folder Location:", font=FONTS["header"], text_color='white').pack(anchor="w", padx=30, pady=(40, 5))
         
         # Frame for entry and button
-        location_frame = tk.Frame(self.frame_content, bg='#1A1A1D')
+        location_frame = ctk.CTkFrame(self.frame_content, fg_color="transparent")
         location_frame.pack(fill=tk.X, padx=30, pady=(0, 20))
 
-        self.project_location_entry = tk.Entry(location_frame, bg='#2B2B2B', fg='white', disabledbackground='#2D2D30', disabledforeground='#888888', insertbackground='white', relief='flat', font=('Poppins', 12), highlightthickness=1, highlightbackground='#3E3E42', highlightcolor='#DC143C')
+        self.project_location_entry = ctk.CTkEntry(
+            location_frame, 
+            fg_color='#2B2B2B', 
+            text_color='white', 
+            placeholder_text="Select your project directory...",
+            border_color='#3E3E42',
+            border_width=1,
+            font=FONTS["body"],
+            state="disabled"
+        )
         self.project_location_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=8, padx=(0, 10))
         
         saved_folder = app_config.get("project_folder")
         if saved_folder:
             Page.project_location = saved_folder
+            self.project_location_entry.configure(state='normal')
             self.project_location_entry.insert(0, saved_folder)
-            
-        self.project_location_entry.configure(state='disabled')
+            self.project_location_entry.configure(state='disabled')
 
-        # The change button to change project folder location
-        self.select_button = tk.Button(location_frame, text='Select', command=self.select_project_folder, font=("Poppins", 10, "bold"), fg="white", bg='#DC143C', activebackground='#A60F2D', activeforeground='white', cursor="hand2", bd=0, relief="flat")
+        # The select button
+        self.select_button = ctk.CTkButton(
+            location_frame, 
+            text='Select', 
+            command=self.select_project_folder, 
+            font=FONTS["body_bold"],
+            fg_color=COLORS["accent_crimson"], 
+            hover_color=COLORS["accent_glow"],
+            corner_radius=8,
+            width=100
+        )
         self.select_button.pack(side=tk.LEFT, ipady=8, ipadx=15)
-        change_on_hover(self.select_button, '#FF1E4D', "#DC143C")
 
         return self.frame_content
 
@@ -676,122 +886,102 @@ class Settings(Page):
         super().__init__(master, **kw)
         self.create_frame_content().pack(fill=tk.BOTH, expand=True)
 
-    def create_frame_content(self) -> tk.Frame:
-        self.frame_content = tk.Frame(self, bg='#1A1A1D')
+    def create_frame_content(self) -> ctk.CTkFrame:
+        self.frame_content = ctk.CTkFrame(self, fg_color="transparent")
 
         # Title
-        tk.Label(self.frame_content, text="Application Settings", font=("Poppins", 16, "bold"), fg='white', bg="#1A1A1D").pack(anchor="w", padx=30, pady=(40, 20))
+        ctk.CTkLabel(self.frame_content, text="Application Settings", font=FONTS["title"], text_color='white').pack(anchor="w", padx=30, pady=(40, 20))
 
         # Proxy Quality & Codec
-        proxy_frame = tk.Frame(self.frame_content, bg='#1A1A1D')
+        proxy_frame = ctk.CTkFrame(self.frame_content, fg_color="transparent")
         proxy_frame.pack(fill=tk.X, padx=30, pady=10)
         
-        tk.Label(proxy_frame, text="Proxy Quality: ", font=("Poppins", 12), fg='white', bg="#1A1A1D").pack(side=tk.LEFT, padx=(0, 20))
+        ctk.CTkLabel(proxy_frame, text="Proxy Quality: ", font=FONTS["body_bold"], text_color='white').pack(side=tk.LEFT, padx=(0, 20))
         self.proxy_var = tk.StringVar(value=app_config.get("proxy_quality"))
-        # Get labels from stored commands
         proxy_opts = list(app_config.get("format_commands")["Proxies"].keys())
-        self.proxy_cb = ttk.Combobox(proxy_frame, textvariable=self.proxy_var, values=proxy_opts, state="readonly", font=("Poppins", 11), width=20)
+        self.proxy_cb = ctk.CTkComboBox(proxy_frame, variable=self.proxy_var, values=proxy_opts, state="readonly", font=FONTS["body"], width=200)
         self.proxy_cb.pack(side=tk.LEFT)
 
-        tk.Label(proxy_frame, text="Codec: ", font=("Poppins", 12), fg='white', bg="#1A1A1D").pack(side=tk.LEFT, padx=(30, 10))
+        ctk.CTkLabel(proxy_frame, text="Codec: ", font=FONTS["body_bold"], text_color='white').pack(side=tk.LEFT, padx=(30, 10))
         self.proxy_codec_var = tk.StringVar(value=app_config.get("proxy_codec"))
         codec_opts = list(CODEC_OPTIONS.keys())
-        self.proxy_codec_cb = ttk.Combobox(proxy_frame, textvariable=self.proxy_codec_var, values=codec_opts, state="readonly", font=("Poppins", 11), width=20)
+        self.proxy_codec_cb = ctk.CTkComboBox(proxy_frame, variable=self.proxy_codec_var, values=codec_opts, state="readonly", font=FONTS["body"], width=200)
         self.proxy_codec_cb.pack(side=tk.LEFT)
 
         # Clips Quality & Codec
-        clips_frame = tk.Frame(self.frame_content, bg='#1A1A1D')
+        clips_frame = ctk.CTkFrame(self.frame_content, fg_color="transparent")
         clips_frame.pack(fill=tk.X, padx=30, pady=10)
 
-        tk.Label(clips_frame, text="Clips Quality: ", font=("Poppins", 12), fg='white', bg="#1A1A1D").pack(side=tk.LEFT, padx=(0, 20))
+        ctk.CTkLabel(clips_frame, text="Clips Quality: ", font=FONTS["body_bold"], text_color='white').pack(side=tk.LEFT, padx=(0, 20))
         self.clips_var = tk.StringVar(value=app_config.get("clips_quality"))
         clips_opts = list(app_config.get("format_commands")["Clips"].keys())
-        self.clips_cb = ttk.Combobox(clips_frame, textvariable=self.clips_var, values=clips_opts, state="readonly", font=("Poppins", 11), width=20)
+        self.clips_cb = ctk.CTkComboBox(clips_frame, variable=self.clips_var, values=clips_opts, state="readonly", font=FONTS["body"], width=200)
         self.clips_cb.pack(side=tk.LEFT)
 
-        tk.Label(clips_frame, text="Codec: ", font=("Poppins", 12), fg='white', bg="#1A1A1D").pack(side=tk.LEFT, padx=(30, 10))
+        ctk.CTkLabel(clips_frame, text="Codec: ", font=FONTS["body_bold"], text_color='white').pack(side=tk.LEFT, padx=(30, 10))
         self.clips_codec_var = tk.StringVar(value=app_config.get("clips_codec"))
-        self.clips_codec_cb = ttk.Combobox(clips_frame, textvariable=self.clips_codec_var, values=codec_opts, state="readonly", font=("Poppins", 11), width=20)
+        self.clips_codec_cb = ctk.CTkComboBox(clips_frame, variable=self.clips_codec_var, values=codec_opts, state="readonly", font=FONTS["body"], width=200)
         self.clips_codec_cb.pack(side=tk.LEFT)
 
         # Cookies Authentication
-        cookies_frame = tk.Frame(self.frame_content, bg='#1A1A1D')
+        cookies_frame = ctk.CTkFrame(self.frame_content, fg_color="transparent")
         cookies_frame.pack(fill=tk.X, padx=30, pady=10)
 
         self.use_cookies_var = tk.BooleanVar(value=bool(app_config.get("use_cookies")))
-        self.use_cookies_cb = tk.Checkbutton(
+        self.use_cookies_cb = ctk.CTkCheckBox(
             cookies_frame,
             text="Use Cookies for yt-dlp",
             variable=self.use_cookies_var,
-            onvalue=True,
-            offvalue=False,
             command=self.on_cookies_toggle,
-            fg="white",
-            bg="#1A1A1D",
-            activebackground="#1A1A1D",
-            activeforeground="white",
-            selectcolor="#2B2B2B",
-            font=("Poppins", 11)
+            fg_color=COLORS["accent_crimson"],
+            hover_color=COLORS["accent_glow"],
+            font=FONTS["body_bold"]
         )
         self.use_cookies_cb.pack(side=tk.LEFT, padx=(0, 20))
 
         self.cookie_file_var = tk.StringVar(value=str(app_config.get("cookie_file") or ""))
-        self.cookie_entry = tk.Entry(
+        self.cookie_entry = ctk.CTkEntry(
             cookies_frame,
             textvariable=self.cookie_file_var,
-            bg='#2B2B2B',
-            fg='white',
-            disabledbackground='#2D2D30',
-            disabledforeground='#888888',
-            insertbackground='white',
-            relief='flat',
-            font=('Poppins', 11),
-            highlightthickness=1,
-            highlightbackground='#3E3E42',
-            highlightcolor='#DC143C'
+            fg_color='#2B2B2B',
+            text_color='white',
+            border_color='#3E3E42',
+            border_width=1,
+            font=FONTS["body"],
+            state="disabled"
         )
         self.cookie_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10), ipady=6)
-        self.cookie_entry.configure(state='disabled')
 
-        self.cookie_select_button = tk.Button(
+        self.cookie_select_button = ctk.CTkButton(
             cookies_frame,
             text='Select Cookie File',
             command=self.select_cookie_file,
-            font=("Poppins", 10, "bold"),
-            fg="white",
-            bg='#DC143C',
-            activebackground='#A60F2D',
-            activeforeground='white',
-            cursor="hand2",
-            bd=0,
-            relief="flat"
+            font=FONTS["body_bold"],
+            fg_color=COLORS["accent_crimson"],
+            hover_color=COLORS["accent_glow"],
+            corner_radius=8,
+            width=150
         )
         self.cookie_select_button.pack(side=tk.LEFT, ipady=6, ipadx=12)
-        change_on_hover(self.cookie_select_button, '#FF1E4D', "#DC143C")
         self.on_cookies_toggle()
 
         # EJS Challenge Solver
-        ejs_frame = tk.Frame(self.frame_content, bg='#1A1A1D')
+        ejs_frame = ctk.CTkFrame(self.frame_content, fg_color="transparent")
         ejs_frame.pack(fill=tk.X, padx=30, pady=10)
 
         self.use_ejs_var = tk.BooleanVar(value=bool(app_config.get("use_ejs")))
-        self.use_ejs_cb = tk.Checkbutton(
+        self.use_ejs_cb = ctk.CTkCheckBox(
             ejs_frame,
             text="Solve JS Challenges (EJS)",
             variable=self.use_ejs_var,
-            onvalue=True,
-            offvalue=False,
             command=self.on_ejs_toggle,
-            fg="white",
-            bg="#1A1A1D",
-            activebackground="#1A1A1D",
-            activeforeground="white",
-            selectcolor="#2B2B2B",
-            font=("Poppins", 11)
+            fg_color=COLORS["accent_crimson"],
+            hover_color=COLORS["accent_glow"],
+            font=FONTS["body_bold"]
         )
         self.use_ejs_cb.pack(side=tk.LEFT, padx=(0, 20))
 
-        tk.Label(ejs_frame, text="JS Runtime: ", font=("Poppins", 11), fg='white', bg="#1A1A1D").pack(side=tk.LEFT)
+        ctk.CTkLabel(ejs_frame, text="JS Runtime: ", font=FONTS["body_bold"], text_color='white').pack(side=tk.LEFT)
         self.available_runtimes = get_available_js_runtimes()
         self.js_runtime_var = tk.StringVar(value=app_config.get("js_runtime") or "node")
         
@@ -799,23 +989,21 @@ class Settings(Page):
         if self.js_runtime_var.get() not in self.available_runtimes and self.available_runtimes:
             self.js_runtime_var.set(self.available_runtimes[0])
 
-        self.js_runtime_cb = ttk.Combobox(ejs_frame, textvariable=self.js_runtime_var, values=self.available_runtimes if self.available_runtimes else ["None Found"], state="readonly", font=("Poppins", 11), width=10)
-        self.js_runtime_cb.pack(side=tk.LEFT)
+        self.js_runtime_cb = ctk.CTkComboBox(ejs_frame, variable=self.js_runtime_var, values=self.available_runtimes if self.available_runtimes else ["None Found"], state="readonly", font=FONTS["body"], width=150)
+        self.js_runtime_cb.pack(side=tk.LEFT, padx=10)
         
         # Initial validation
         self.on_ejs_toggle(initial=True)
 
         # Buttons
-        buttons_frame = tk.Frame(self.frame_content, bg='#1A1A1D')
+        buttons_frame = ctk.CTkFrame(self.frame_content, fg_color="transparent")
         buttons_frame.pack(fill=tk.X, padx=30, pady=40)
 
-        self.save_button = tk.Button(buttons_frame, text="Save Settings", font=("Poppins", 11, "bold"), fg="white", bg='#DC143C', activebackground='#A60F2D', activeforeground='white', relief="flat", bd=0, cursor="hand2", command=self.save_settings)
+        self.save_button = ctk.CTkButton(buttons_frame, text="Save Settings", font=FONTS["header"], fg_color=COLORS["accent_crimson"], hover_color=COLORS["accent_glow"], corner_radius=8, command=self.save_settings)
         self.save_button.pack(side=tk.LEFT, ipady=6, ipadx=20)
-        change_on_hover(self.save_button, '#FF1E4D', '#DC143C')
 
-        self.reset_button = tk.Button(buttons_frame, text="Reset Defaults", font=("Poppins", 11, "bold"), fg="white", bg='#3E3E42', activebackground='#4A4A4F', activeforeground='white', relief="flat", bd=0, cursor="hand2", command=self.reset_settings)
+        self.reset_button = ctk.CTkButton(buttons_frame, text="Reset Defaults", font=FONTS["header"], fg_color='#3E3E42', hover_color='#4A4A4F', corner_radius=8, command=self.reset_settings)
         self.reset_button.pack(side=tk.LEFT, padx=20, ipady=6, ipadx=20)
-        change_on_hover(self.reset_button, '#4A4A4F', '#3E3E42')
 
         return self.frame_content
 
@@ -823,10 +1011,10 @@ class Settings(Page):
         is_enabled = self.use_cookies_var.get()
         if is_enabled:
             self.cookie_entry.configure(state='normal')
-            self.cookie_select_button.configure(state='normal', bg='#DC143C')
+            self.cookie_select_button.configure(state='normal', fg_color=COLORS["accent_crimson"])
         else:
             self.cookie_entry.configure(state='disabled')
-            self.cookie_select_button.configure(state='disabled', bg='#3E3E42')
+            self.cookie_select_button.configure(state='disabled', fg_color='#3E3E42')
 
     def on_ejs_toggle(self, initial=False):
         if not self.available_runtimes:

@@ -4,7 +4,7 @@
 
 A modern, dark-themed desktop application designed to streamline video content creation workflows. **PreCut** provides a centralized interface for generating transcripts, downloading high-quality clips, and managing low-resolution proxies with real-time feedback and smart concurrency management.
 
-> **PreCut v1.1.4** — Added **EJS (External JavaScript)** support to solve modern YouTube JS challenges using local runtimes like Node.js. Also features improved path handling and clean UI progress labels.
+> **PreCut v2.0.0** — Major overhaul! Added **Pause & Resume** support, switched to **Deno** as the default EJS solver, and fixed critical thumbnail stability issues. Featuring a modernized dark UI and improved Nuitka bundling.
 
 ---
 

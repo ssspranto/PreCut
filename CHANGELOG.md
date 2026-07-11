@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.0] - 2026-04-26
+
+### Added
+- **Pause & Resume Downloads**: Implemented a stop-and-resume mechanism for both Clips and Proxies. Downloads can now be paused mid-flight and resumed later, picking up from the existing partial file.
+- **Improved Thumbnail Support**: Added a persistent reference system for thumbnails to prevent garbage collection issues and a User-Agent header to ensure reliable fetching.
+
+### Changed
+- **Default EJS Runtime**: Switched the default JavaScript runtime from `node` to `deno` for better out-of-the-box performance with yt-dlp challenges.
+- **Optimized Packaging**: Updated the build process to fully support Nuitka standalone distribution for `customtkinter` and `yt_dlp`.
+
+### Fixed
+- **Thumbnail Crashes**: Resolved a `NameError` and potential `TclError` when updating thumbnails on panels that were closed while a background fetch was active.
+- **Dependency Audit**: Updated `requirements.txt` with missing core packages (`customtkinter`, `requests`).
+
 ## [1.1.4] - 2026-04-24
 
 ### Added
