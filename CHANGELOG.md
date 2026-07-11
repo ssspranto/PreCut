@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.0] - 2026-07-12
+
+### Added
+- **OST Downloader**: New audio download page for extracting soundtracks from videos. Supports MP3, FLAC, and AAC formats with selectable bitrates (128k–320k). FLAC automatically disables bitrate selection. Audio files are saved to the project's `OST/` folder.
+- **DownloadingPanel Component**: New audio-focused download panel (`components.py`) without video thumbnails, designed specifically for the OST Downloader.
+- **Per-Page Settings**: Quality, codec, format, and bitrate selectors are now embedded directly in their respective downloader pages (Clips, Proxy, OST, Transcript) instead of the global Settings page.
+- **Transcript Text Format Selector**: Transcript Generator now supports exporting as Plain Text (`.txt`) or Markdown (`.md`).
+- **UI Responsiveness**: Added `update_idletasks()` calls across DownloadCard, DownloadingPanel, and TranscriptGenerator for immediate UI redraws during downloads and transcript generation.
+
+### Changed
+- **Settings Page Simplified**: Removed Clips/Proxy quality+codec and OST format+bitrate controls from Settings. Settings now only contains Cookies and EJS configuration. Reset Defaults still resets all settings globally.
+- **Module Refactoring**: Split the monolithic `page_view.py` (1100+ lines) into 7 focused modules: `ui_page.py`, `components.py`, `page_home.py`, `page_transcript.py`, `page_clips.py`, `page_proxy.py`, `page_settings.py`.
+- **Sidebar Icon**: OST Downloader now uses a dedicated `ost_downloader.png` icon.
+
+### Fixed
+- **Settings Save Behavior**: Quality/codec/format/bitrate settings are now saved to config on download action, not on combobox change, preventing partial state saves.
+
 ## [2.0.0] - 2026-04-26
 
 ### Added

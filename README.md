@@ -4,16 +4,17 @@
 
 A modern, dark-themed desktop application designed to streamline video content creation workflows. **PreCut** provides a centralized interface for generating transcripts, downloading high-quality clips, and managing low-resolution proxies with real-time feedback and smart concurrency management.
 
-> **PreCut v2.0.0** — Major overhaul! Added **Pause & Resume** support, switched to **Deno** as the default EJS solver, and fixed critical thumbnail stability issues. Featuring a modernized dark UI and improved Nuitka bundling.
+> **PreCut v2.1.0** — Added **OST Downloader** for audio extraction (MP3/FLAC/AAC), per-page settings for Clips/Proxy/OST/Transcript, and improved UI responsiveness. Refactored into modular architecture.
 
 ---
 
 ## ✨ Features
 
-- **📺 Transcript Generator**: Automatically fetch and clean transcripts from online video sources. Strips WebVTT formatting, timestamps, and redundant tags to give you a clean, usable script instantly.
-- **📥 Clips Downloader**: Download high-quality video clips directly into your project folders. Features a custom inline terminal log for real-time `yt-dlp` transparency.
-- **⚡ Proxy Downloader**: Create lightweight proxies (360p/480p) for faster editing timelines. Files are saved under your project’s `Proxies` folder as `Title_Proxy.ext` (e.g. `MyVideo_Proxy.mp4`).
-- **🎵 Unified Audio Sample Rate (44.1 kHz)**: Clips and Proxies now use a hybrid strategy that prefers native `44.1 kHz` tracks (`asr=44100`) and only falls back to `ffmpeg` audio resampling if a source resolves to another rate (such as `48 kHz`).
+- **📺 Transcript Generator**: Automatically fetch and clean transcripts from online video sources. Strips WebVTT formatting, timestamps, and redundant tags. Export as **Plain Text** or **Markdown**.
+- **📥 Clips Downloader**: Download high-quality video clips with inline quality and codec selectors. Features a custom inline terminal log for real-time `yt-dlp` transparency.
+- **⚡ Proxy Downloader**: Create lightweight proxies with inline quality and codec selectors for faster editing timelines. Files are saved under your project's `Proxies` folder as `Title_Proxy.ext`.
+- **🎵 OST Downloader**: Extract audio soundtracks from videos. Choose between **MP3, FLAC, and AAC** formats with selectable bitrates (128k–320k). FLAC auto-disables bitrate. Files saved to your project's `OST/` folder.
+- **🎵 Unified Audio Sample Rate (44.1 kHz)**: Clips and Proxies use a hybrid strategy that prefers native `44.1 kHz` tracks (`asr=44100`) and only falls back to `ffmpeg` audio resampling if a source resolves to another rate.
 - **🎬 Codec Selector**: Choose between H.264 (Compatible), AV1 (Efficient), and VP9 (Highest Quality). Defaults to H.264 for perfect compatibility with Adobe Premiere Pro and DaVinci Resolve.
 - **🍪 Toggleable Cookies & EJS Support**: Handle bot-check-gated videos using either a standard cookie file or the new **EJS (External JavaScript)** solver. EJS uses local runtimes to solve challenges on-the-fly, significantly improving bypass reliability.
 - **🧠 Smart Runtime Detection**: Built-in system check automatically detects Node.js, Deno, Bun, or QuickJS. The app prevents enabling EJS if no runtime is found and filters the selector to only show installed options, ensuring a foolproof setup.
@@ -96,13 +97,21 @@ For users who want to run **PreCut** without installing Python or any libraries,
 
 ```text
 PreCut/
-├── assets/             # UI Icons and Brand Assets
+├── assets/                 # UI Icons and Brand Assets
 ├── src/
-│   ├── main.py        # Entry point and sidebar navigation
-│   ├── page_view.py   # Core UI Components and Logic
-│   ├── config.py      # AppConfig and Path Management
-│   └── utils.py       # Theme Helpers and Hover Effects
-├── requirements.txt    # External dependencies
+│   ├── main.py             # Entry point and sidebar navigation
+│   ├── ui_page.py          # Page base class and shared utilities
+│   ├── ui_theme.py         # Colors and fonts
+│   ├── components.py       # DownloadCard and DownloadingPanel widgets
+│   ├── config.py           # AppConfig and format templates
+│   ├── utils.py            # Asset paths, dependencies, hover effects
+│   ├── page_home.py        # Project folder selection
+│   ├── page_transcript.py  # Transcript Generator
+│   ├── page_clips.py       # Clips Downloader
+│   ├── page_proxy.py       # Proxy Downloader
+│   ├── page_ost.py         # OST Audio Downloader
+│   └── page_settings.py    # Cookies and EJS settings
+├── requirements.txt        # External dependencies
 └── README.md
 ```
 

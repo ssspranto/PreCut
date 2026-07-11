@@ -9,7 +9,12 @@ sys.pycache_prefix = pycache_dir
 import tkinter as tk
 from tkinter import ttk, messagebox
 import customtkinter as ctk
-from page_view import TranscriptGenerator, ClipsDownloader, ProxyDownloader, Home, Settings
+from page_home import Home
+from page_transcript import TranscriptGenerator
+from page_clips import ClipsDownloader
+from page_proxy import ProxyDownloader
+from page_ost import OSTDownloader
+from page_settings import Settings
 from PIL import Image, ImageTk
 from utils import check_dependencies, get_asset_path
 from ui_theme import COLORS, FONTS, setup_theme
@@ -200,6 +205,7 @@ if __name__ == "__main__":
     services.add_page(image_path=get_asset_path('assets/transcript_generator.png'), service_name='Transcript Generator', page=TranscriptGenerator)
     services.add_page(image_path=get_asset_path('assets/clips_downloader.png'), service_name='Clip Downloader', page=ClipsDownloader)
     services.add_page(image_path=get_asset_path('assets/proxy_downloader.png'), service_name='Proxy Downloader', page=ProxyDownloader)
+    services.add_page(image_path=get_asset_path('assets/ost_downloader.png'), service_name='OST Downloader', page=OSTDownloader)
     services.add_page(image_path=get_asset_path('assets/settings.png'), service_name='Settings', page=Settings)
 
     # Initialize app with the Home page displayed

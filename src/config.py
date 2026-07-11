@@ -2,6 +2,18 @@ import os
 import json
 import pathlib
 
+# Audio Format Options (OST Downloader)
+AUDIO_FORMAT_OPTIONS = {
+    "MP3": "mp3",
+    "FLAC": "flac",
+    "AAC": "aac"
+}
+
+AUDIO_BITRATE_OPTIONS = ["128k", "192k", "256k", "320k"]
+
+# Transcript Text Format Options
+TEXT_FORMAT_OPTIONS = {"Plain Text (.txt)": "txt", "Markdown (.md)": "md"}
+
 # Codec Filtering Options
 CODEC_OPTIONS = {
     "H.264 (Compatible)": "vcodec^=avc1",
@@ -31,6 +43,9 @@ DEFAULT_SETTINGS = {
     "proxy_quality": "360p",
     "clips_codec": "H.264 (Compatible)",
     "proxy_codec": "H.264 (Compatible)",
+    "ost_format": "MP3",
+    "ost_bitrate": "192k",
+    "transcript_format": "Plain Text (.txt)",
     "use_cookies": False,
     "cookie_file": "",
     "use_ejs": True,
