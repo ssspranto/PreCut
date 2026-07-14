@@ -1,0 +1,56 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Get version from tag
+        id: version
+        shell: bash
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build portable executable
+        run: python build.py
+
+      - name: Build installer (Inno Setup)
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DAppVersion=${{ steps.version.outputs.version }} installer.iss
+
+      - name: Prepare release assets
+        shell: bash
+        run: |
+          mkdir -p release_assets
+          cp "dist/PreCut.exe" "release_assets/PreCut-${{ steps.version.outputs.version }}-portable.exe"
+          cp installer_output/PreCut-Setup-*.exe release_assets/
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release_assets/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
