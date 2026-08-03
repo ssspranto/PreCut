@@ -12,7 +12,7 @@ A modern, dark-themed desktop application designed to streamline video content c
 
 - **📺 Transcript Generator**: Automatically fetch and clean transcripts from online video sources. Strips WebVTT formatting, timestamps, and redundant tags. Export as **Plain Text** or **Markdown**.
 - **📥 Clips Downloader**: Download high-quality video clips with inline quality and codec selectors. Features a custom inline terminal log for real-time `yt-dlp` transparency.
-- **⚡ Proxy Downloader**: Create lightweight proxies with inline quality and codec selectors for faster editing timelines. Files are saved under your project's `Proxies` folder as `Title_Proxy.ext`.
+- **⚡ Proxy Downloader**: Create lightweight proxies with inline quality selector for faster editing timelines. Downloads the best available H.264 stream, then converts it to **ProRes 422** (`.mov`) via FFmpeg. Files are saved directly to `C:/Proxies`.
 - **🎵 OST Downloader**: Extract audio soundtracks from videos. Choose between **MP3, FLAC, and AAC** formats with selectable bitrates (128k–320k). FLAC auto-disables bitrate. Files saved to your project's `OST/` folder.
 - **🎵 Unified Audio Sample Rate (44.1 kHz)**: Clips and Proxies use a hybrid strategy that prefers native `44.1 kHz` tracks (`asr=44100`) and only falls back to `ffmpeg` audio resampling if a source resolves to another rate.
 - **🎬 Codec Selector**: Choose between H.264 (Compatible), AV1 (Efficient), and VP9 (Highest Quality). Defaults to H.264 for perfect compatibility with Adobe Premiere Pro and DaVinci Resolve.

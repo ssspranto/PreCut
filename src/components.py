@@ -4,6 +4,7 @@ from tkinter import messagebox
 import threading
 import subprocess
 import os
+import re
 
 import yt_dlp
 import requests
@@ -36,7 +37,7 @@ class YdlPanelLogger:
 
 
 class DownloadCard(ctk.CTkFrame):
-    def __init__(self, master, url, ydl_opts, on_finish_callback=None, **kw):
+    def __init__(self, master, url, ydl_opts, on_finish_callback=None, post_download_callback=None, **kw):
         if 'fg_color' not in kw:
             kw['fg_color'] = COLORS["bg_card"]
         super().__init__(master, corner_radius=12, **kw)
@@ -44,6 +45,7 @@ class DownloadCard(ctk.CTkFrame):
         self.url = url
         self.ydl_opts = dict(ydl_opts)
         self.on_finish_callback = on_finish_callback
+        self.post_download_callback = post_download_callback
         self.cancel_requested = False
         self._closed = False
         self.downloaded_files = []
@@ -125,6 +127,7 @@ class DownloadCard(ctk.CTkFrame):
                 if thumb_url:
                     threading.Thread(target=self.load_thumbnail, args=(thumb_url,), daemon=True).start()
 
+                self._pre_download_files = self._snapshot_output_dir()
                 ydl.download([self.url])
 
             if self.cancel_requested:
@@ -132,7 +135,10 @@ class DownloadCard(ctk.CTkFrame):
                 self.after(0, self._close_panel)
                 return
 
+            self.downloaded_files = self._collect_final_files(self.downloaded_files)
             self.normalize_downloaded_audio()
+            if self.post_download_callback:
+                self.post_download_callback(self)
             self.after(0, self.on_finish)
         except (DownloadCancelled, DownloadPaused) as e:
             if isinstance(e, DownloadPaused):
@@ -170,6 +176,49 @@ class DownloadCard(ctk.CTkFrame):
                 self.thumb_label.configure(image=self.thumbnail_ref, text="")
         except Exception:
             pass
+
+    def _snapshot_output_dir(self):
+        outtmpl = self.ydl_opts.get("outtmpl", "")
+        output_dir = os.path.dirname(outtmpl) if outtmpl else ""
+        if not output_dir or not os.path.isdir(output_dir):
+            return set()
+        try:
+            return set(os.listdir(output_dir))
+        except Exception:
+            return set()
+
+    def _collect_final_files(self, hook_files):
+        finals = []
+        seen = set()
+
+        for path in hook_files:
+            full = os.path.abspath(path)
+            if full not in seen and os.path.exists(full):
+                seen.add(full)
+                finals.append(full)
+
+        outtmpl = self.ydl_opts.get("outtmpl", "")
+        output_dir = os.path.dirname(outtmpl) if outtmpl else ""
+        if output_dir and os.path.isdir(output_dir):
+            try:
+                pre = getattr(self, "_pre_download_files", set())
+                current = set(os.listdir(output_dir))
+                new_names = current - pre
+            except Exception:
+                new_names = set()
+
+            for name in sorted(new_names):
+                if re.search(r"\.part|\.f\d+\.", name):
+                    continue
+                _, ext = os.path.splitext(name)
+                if ext.lower() not in (".mp4", ".mov", ".mkv", ".webm"):
+                    continue
+                full = os.path.abspath(os.path.join(output_dir, name))
+                if full not in seen and os.path.exists(full):
+                    seen.add(full)
+                    finals.append(full)
+
+        return finals
 
     def on_finish(self):
         messagebox.showinfo("Download Completed!", "Video files have been successfully downloaded.")
