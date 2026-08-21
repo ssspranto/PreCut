@@ -1,5 +1,6 @@
 import os
 import shlex
+import shutil
 
 import customtkinter as ctk
 
@@ -23,9 +24,9 @@ def apply_cookie_option(ydl_opts):
         ydl_opts["cookiefile"] = os.path.normpath(cookie_file).replace("\\", "/")
 
     if bool(app_config.get("use_ejs")):
-        ydl_opts["remote_components"] = ["ejs:github"]
         runtime = app_config.get("js_runtime")
-        if runtime:
+        if runtime and shutil.which(runtime):
+            ydl_opts["remote_components"] = ["ejs:github"]
             ydl_opts["js_runtimes"] = {runtime: {}}
 
 
