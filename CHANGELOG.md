@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.2] - 2026-08-29
+
+### Fixed
+- **Startup Crash**: Resolved `NameError: name 'get_data_dir' is not defined` at launch, caused by `get_data_dir` being imported after it was used to set the pycache directory. The import now happens at the top of `main.py`.
+
 ## [2.1.1] - 2026-08-29
 
 ### Changed

@@ -1,5 +1,6 @@
 import sys
 import os
+from utils import get_data_dir
 
 # Redirect pycache folder globally to the local data directory
 pycache_dir = os.path.join(get_data_dir(), 'pycache')
@@ -16,7 +17,7 @@ from page_proxy import ProxyDownloader
 from page_ost import OSTDownloader
 from page_settings import Settings
 from PIL import Image, ImageTk
-from utils import check_dependencies, get_asset_path, get_data_dir
+from utils import check_dependencies, get_asset_path
 from ui_theme import COLORS, FONTS, setup_theme
 
 class ServicesView(ctk.CTkFrame):
