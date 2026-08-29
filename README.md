@@ -4,7 +4,7 @@
 
 A modern, dark-themed desktop application designed to streamline video content creation workflows. **PreCut** provides a centralized interface for generating transcripts, downloading high-quality clips, and managing low-resolution proxies with real-time feedback and smart concurrency management.
 
-> **PreCut v2.1.0** — Added **OST Downloader** for audio extraction (MP3/FLAC/AAC), per-page settings for Clips/Proxy/OST/Transcript, and improved UI responsiveness. Refactored into modular architecture.
+> **PreCut v2.1.1** — Added **OST Downloader** for audio extraction (MP3/FLAC/AAC), per-page settings for Clips/Proxy/OST/Transcript, and improved UI responsiveness. Refactored into modular architecture. Now portable app stores data in native folder.
 
 ---
 
