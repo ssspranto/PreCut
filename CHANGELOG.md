@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.1] - 2026-08-29
+
+### Changed
+- **Portable Data Location**: App data (`settings.json` and the `__pycache__` cache) now lives in a `data/` subfolder next to `PreCut.exe` instead of `~/Documents/PreCut/data`. Settings and caches travel with the portable build, so the app can run from any writable folder without touching the user's Documents.
+
 ## [2.1.0] - 2026-07-12
 
 ### Added

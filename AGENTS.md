@@ -10,19 +10,22 @@ Windows-only Python desktop app (CustomTkinter + `yt_dlp`) with 5 sidebar pages.
 
 ## Architecture
 
-- `src/main.py` is the entrypoint; it builds the sidebar and registers pages via `ServicesView.add_page(image_path, service_name, page)` (main.py:203). A new feature = new `src/page_*.py` + one `add_page` call.
+- `src/main.py` is the entrypoint; it builds the sidebar and registers pages via `ServicesView.add_page(image_path, service_name, page)` (defined main.py:106, called main.py:205-209). A new feature = new `src/page_*.py` + one `add_page` call.
 - Each page is a `Page` subclass from `src/ui_page.py:9` (a `ctk.CTkFrame`). Download pages use `DownloadCard`/`DownloadingPanel` from `src/components.py` and pull format selectors from `src/config.py`.
-- `src/utils.py:get_asset_path()` resolves `assets/...` for both dev and PyInstaller `_MEIPASS`; always get paths through it.
+- `src/utils.py:get_asset_path()` resolves `assets/...` for both dev (`../assets` from `src/`) and PyInstaller `_MEIPASS`; always get paths through it.
 - All `yt_dlp` calls go through the Python API (threads in `components.py`), never subprocess; `ui_page.py:apply_cookie_option()` builds cookie/EJS opts.
+- `Page.project_location` (ui_page.py:10) is a **class-level** shared variable set only by the Home page (page_home.py:59); download pages read it to build output paths (`<project>/Clips`, `/Proxies`, `/OST`, `/Script`) and reject downloads when it's empty.
+- `utils.py:video_regex` only matches YouTube URLs (`youtube.com`/`youtu.be`) — all pages reject non-YouTube links.
+- `config.py` stores format commands as `yt-dlp -f "<selector>" --merge-output-format mp4` strings for the Settings display, but the app parses out just the format selector via `ui_page.py:extract_format_selector()` and passes it to the yt-dlp Python API.
 
 ## Concurrency rule (important)
 
-Each download page keeps `self.active_downloads` and rejects duplicate URLs and rejects when `len(...) >= 2` — max **2 concurrent downloads per page** (page_clips.py:91-95, same in proxy/ost). Any new download page must replicate this pattern.
+Each download page keeps `self.active_downloads` and rejects duplicate URLs and rejects when `len(...) >= 2` — max **2 concurrent downloads per page** (page_clips.py:91-97, identical in page_proxy.py:90-94 and page_ost.py:98-102). Any new download page must replicate this pattern.
 
 ## Config / state lives outside the repo
 
 - `src/config.py` reads/writes `~/Documents/PreCut/data/settings.json` and exposes a module-level singleton `app_config` (import `from config import app_config`). It auto-regenerates `format_commands` from templates on every startup (`regenerate_all_commands`).
-- `sys.pycache_prefix` redirects all `__pycache__` to `~/Documents/PreCut/data/pycache` (main.py:5). Do not create `__pycache__` inside `src/`; if you see `build/` or `dist/` in the working tree they are stale local artifacts and are gitignored.
+- `sys.pycache_prefix` redirects all `__pycache__` to `~/Documents/PreCut/data/pycache` (main.py:7). Do not create `__pycache__` inside `src/`; if you see `build/` or `dist/` in the working tree they are stale local artifacts and are gitignored.
 
 ## Format templates
 

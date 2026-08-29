@@ -1,6 +1,7 @@
 import os
 import json
 import pathlib
+from utils import get_data_dir
 
 # Audio Format Options (OST Downloader)
 AUDIO_FORMAT_OPTIONS = {
@@ -59,8 +60,7 @@ DEFAULT_SETTINGS = {
 
 class AppConfig:
     def __init__(self):
-        docs = pathlib.Path(os.path.expanduser('~')) / "Documents" / "PreCut" / "data"
-        docs.mkdir(parents=True, exist_ok=True)
+        docs = pathlib.Path(get_data_dir())
         self.config_path = docs / "settings.json"
         
         self.settings = DEFAULT_SETTINGS.copy()

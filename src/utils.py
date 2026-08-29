@@ -2,6 +2,21 @@ import os
 import sys
 import shutil
 
+def get_data_dir():
+    """Resolve the writable data directory for settings and caches.
+
+    - Packaged (PyInstaller): <directory containing PreCut.exe>/data
+    - Dev (python src/main.py): <repo root>/data
+    """
+    if getattr(sys, 'frozen', False):
+        base = os.path.dirname(os.path.abspath(sys.executable))
+    else:
+        # sys.argv[0] is the entry script (src/main.py) when run normally
+        base = os.path.dirname(os.path.dirname(os.path.abspath(sys.argv[0])))
+    data_dir = os.path.join(base, "data")
+    os.makedirs(data_dir, exist_ok=True)
+    return data_dir
+
 def get_asset_path(relative_path):
     """ Get absolute path to asset, works for dev, Nuitka onefile, and PyInstaller """
     # PyInstaller onefile: assets live in sys._MEIPASS

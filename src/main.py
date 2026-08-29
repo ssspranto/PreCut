@@ -1,8 +1,8 @@
 import sys
 import os
 
-# Redirect pycache folder globally to Documents
-pycache_dir = os.path.join(os.path.expanduser('~'), 'Documents', 'PreCut', 'data', 'pycache')
+# Redirect pycache folder globally to the local data directory
+pycache_dir = os.path.join(get_data_dir(), 'pycache')
 os.makedirs(pycache_dir, exist_ok=True)
 sys.pycache_prefix = pycache_dir
 
@@ -16,7 +16,7 @@ from page_proxy import ProxyDownloader
 from page_ost import OSTDownloader
 from page_settings import Settings
 from PIL import Image, ImageTk
-from utils import check_dependencies, get_asset_path
+from utils import check_dependencies, get_asset_path, get_data_dir
 from ui_theme import COLORS, FONTS, setup_theme
 
 class ServicesView(ctk.CTkFrame):
@@ -138,7 +138,7 @@ class Sidebar(ctk.CTkFrame):
         self.buttons = {}
 
         # Logo / Title
-        self.logo_label = ctk.CTkLabel(self, text="PRECUT 2.0", font=FONTS["title"], text_color=COLORS["accent_crimson"])
+        self.logo_label = ctk.CTkLabel(self, text="PRECUT 2.1", font=FONTS["title"], text_color=COLORS["accent_crimson"])
         self.logo_label.pack(pady=(40, 40), padx=20)
 
         # Home button (fixed)
@@ -177,7 +177,7 @@ if __name__ == "__main__":
     setup_theme()
     
     root = ctk.CTk()
-    root.title("PreCut 2.0 - Content Workflow Suite")
+    root.title("PreCut 2.1 - Content Workflow Suite")
     root.geometry('1100x750+450+150')
     root.configure(fg_color=COLORS["bg_dark"])
 

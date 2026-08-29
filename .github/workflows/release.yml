@@ -33,24 +33,40 @@ jobs:
         shell: bash
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
+      - name: Stamp version_info.txt from tag
+        shell: python
+        run: |
+          import re, pathlib
+          v = "${{ steps.version.outputs.version }}"
+          # Expect tag like x.y.z -> (x, y, z, 0)
+          parts = v.split(".")
+          while len(parts) < 3:
+              parts.append("0")
+          nums = ",".join(parts[:3] + ["0"])
+          dotted = ".".join(parts[:3] + ["0"])
+          p = pathlib.Path("version_info.txt")
+          t = p.read_text(encoding="utf-8")
+          t = re.sub(r"filevers=\(\d+,\s*\d+,\s*\d+,\s*\d+\)", f"filevers=({nums})", t)
+          t = re.sub(r"prodvers=\(\d+,\s*\d+,\s*\d+,\s*\d+\)", f"prodvers=({nums})", t)
+          t = re.sub(r"u'FileVersion',\s*u'\d+\.\d+\.\d+\.\d+'", f"u'FileVersion', u'{dotted}'", t)
+          t = re.sub(r"u'ProductVersion',\s*u'\d+\.\d+\.\d+\.\d+'", f"u'ProductVersion', u'{dotted}'", t)
+          p.write_text(t, encoding="utf-8")
+          print(f"Stamped version_info.txt with {dotted}")
+
       - name: Build portable executable
         run: python build.py
 
-      - name: Build installer (Inno Setup)
-        run: |
-          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DAppVersion=${{ steps.version.outputs.version }} installer.iss
-
-      - name: Prepare release assets
+      - name: Package portable folder
         shell: bash
         run: |
-          mkdir -p release_assets
-          cp "dist/PreCut.exe" "release_assets/PreCut-${{ steps.version.outputs.version }}-portable.exe"
-          cp installer_output/PreCut-Setup-*.exe release_assets/
+          mkdir -p PreCut
+          cp "dist/PreCut.exe" "PreCut/PreCut.exe"
+          powershell -Command "Compress-Archive -Path 'PreCut' -DestinationPath 'PreCut-${{ steps.version.outputs.version }}-portable.zip' -Force"
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          files: release_assets/*
+          files: PreCut-${{ steps.version.outputs.version }}-portable.zip
           generate_release_notes: true
           draft: false
           prerelease: false

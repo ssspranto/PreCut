@@ -4,16 +4,12 @@ from tkinter import messagebox
 import re
 import os
 import pathlib
-import subprocess
 
 from ui_page import Page, apply_cookie_option, extract_format_selector
 from components import DownloadCard
 from config import app_config
 from utils import video_regex
 from ui_theme import COLORS, FONTS
-import yt_dlp
-
-
 
 
 class ProxyDownloader(Page):
@@ -121,88 +117,9 @@ class ProxyDownloader(Page):
         }
         apply_cookie_option(ydl_opts)
 
-        # Pre-extract info to get the expected filename
-        expected_path = None
-        try:
-            with yt_dlp.YoutubeDL(dict(ydl_opts)) as ydl:
-                info = ydl.extract_info(url, download=False)
-                # Get the expected filename after yt-dlp processing (merging, etc.)
-                expected_path = ydl.prepare_filename(info)
-        except Exception:
-            # If pre-extraction fails, fall back to template-based path
-            pass
-
-        panel = DownloadCard(self.panels_frame, url, ydl_opts, on_finish_callback=self.on_download_complete, post_download_callback=self.convert_to_prores)
-        # Store the expected path on the panel for post-download conversion
-        if expected_path:
-            panel.expected_file = expected_path
+        panel = DownloadCard(self.panels_frame, url, ydl_opts, on_finish_callback=self.on_download_complete)
         panel.pack(fill=tk.X, padx=15, pady=(0, 10))
         self.active_downloads[panel] = url
-
-    def convert_to_prores(self, panel):
-        # Use the pre-calculated expected file path
-        expected_path = getattr(panel, 'expected_file', None)
-        
-        # Fallback: if no expected path, try to find the .mp4 that matches downloaded_files
-        if not expected_path:
-            media_files = [f for f in panel.downloaded_files if f and os.path.exists(f) and f.lower().endswith('.mp4')]
-            if not media_files:
-                panel.queue_log("[post] No files found to convert. Skipping ProRes conversion.\n")
-                return
-        else:
-            # Use the expected path if it exists
-            if os.path.exists(expected_path):
-                media_files = [expected_path]
-            else:
-                # Fallback: check if there's an .mp4 file in downloaded_files
-                media_files = [f for f in panel.downloaded_files if f and os.path.exists(f) and f.lower().endswith('.mp4')]
-                if not media_files:
-                    panel.queue_log("[post] Expected file not found and no fallback files. Skipping ProRes conversion.\n")
-                    return
-
-        panel.after(0, lambda: panel.speed_label.configure(text="Converting to ProRes..."))
-        panel.queue_log(f"[post] Converting {len(media_files)} file(s) to ProRes 422...\n")
-
-        for media_path in media_files:
-            base, ext = os.path.splitext(media_path)
-            output_path = f"{base}.mov"
-
-            # Skip if already converted (output exists)
-            if os.path.exists(output_path):
-                panel.queue_log(f"[post] Already converted: {os.path.basename(media_path)}\n")
-                continue
-
-            ffmpeg_cmd = [
-                "ffmpeg", "-i", media_path,
-                "-c:v", "prores_ks", "-profile:v", "0", "-vendor", "apl0",
-                "-pix_fmt", "yuv422p10le",
-                "-c:a", "aac", "-b:a", "128k",
-                "-y", output_path
-            ]
-
-            creation_flags = 0
-            if os.name == 'nt':
-                creation_flags = subprocess.CREATE_NO_WINDOW
-
-            try:
-                panel.queue_log(f"[post] Converting to ProRes 422: {os.path.basename(media_path)}\n")
-                proc = subprocess.Popen(
-                    ffmpeg_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                    text=True, encoding="utf-8", errors="replace", creationflags=creation_flags
-                )
-                for line in iter(proc.stdout.readline, ""):
-                    if line.strip():
-                        panel.queue_log(line)
-                proc.stdout.close()
-                returncode = proc.wait()
-
-                if returncode == 0 and os.path.exists(output_path):
-                    os.remove(media_path)
-                    panel.queue_log(f"[post] Deleted original: {os.path.basename(media_path)}\n")
-                else:
-                    panel.queue_log(f"[post] ProRes conversion failed, keeping original: {os.path.basename(media_path)}\n")
-            except Exception as e:
-                panel.queue_log(f"[post] Failed to convert to ProRes: {e}\n")
 
     def on_download_complete(self, panel):
         if panel in self.active_downloads:
